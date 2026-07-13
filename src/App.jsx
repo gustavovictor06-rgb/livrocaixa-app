@@ -5,8 +5,12 @@ import {
 } from 'recharts';
 import {
   LayoutDashboard, Wallet, ShieldCheck, Plane, TrendingUp,
-  Plus, Trash2, ChevronRight, Info
+  Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check
 } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from './firebase.js';
+import { useAuth } from './AuthContext.jsx';
+import Login from './Login.jsx';
 
 const STORAGE_KEY = 'financas:estado:v1';
 
@@ -37,6 +41,11 @@ const defaultState = {
     // Ibovespa com retorno nominal de longo prazo na casa de 11-12% a.a.
     returns: { rendaFixa: 13, fiis: 11, acoes: 12 },
   },
+  wishlist: [
+    { id: 'w1', name: 'Tênis novo', price: 400 },
+    { id: 'w2', name: 'Roupa', price: 250 },
+    { id: 'w3', name: 'Sair com os amigos', price: 150 },
+  ],
 };
 
 const fmtBRL = (v) =>
@@ -86,34 +95,50 @@ const NAV = [
   { id: 'renda', label: 'Renda & Despesas', icon: Wallet },
   { id: 'emergencia', label: 'Reserva de Emergência', icon: ShieldCheck },
   { id: 'viagem', label: 'Viagem', icon: Plane },
+  { id: 'prosperar', label: 'Prosperar', icon: Sparkles },
   { id: 'investimento', label: 'Plano de Investimento', icon: TrendingUp },
 ];
 
 const PIE_COLORS = ['#1F6F54', '#B8862E', '#8B3A2B', '#4A5C55', '#5E8C7C', '#C9A64A'];
 
-export default function App() {
+function AppShell({ user }) {
+  const { logout } = useAuth();
   const [state, setState] = useState(defaultState);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState('painel');
 
+  // Carrega os dados do Firestore, no documento do usuário logado.
+  // Cada usuário só enxerga o próprio documento (veja firestore.rules).
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setState(JSON.parse(raw));
-    } catch (e) {
-      // sem dados salvos ainda
-    }
-    setLoaded(true);
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        const ref = doc(db, 'livrocaixa', user.uid);
+        const snap = await getDoc(ref);
+        if (!cancelled && snap.exists()) {
+          setState(snap.data().state || defaultState);
+        }
+      } catch (e) {
+        console.error('Falha ao carregar dados do usuário', e);
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user.uid]);
 
+  // Salva no Firestore (documento do próprio usuário) sempre que o estado muda,
+  // com um pequeno debounce para não gravar a cada tecla digitada.
   useEffect(() => {
     if (!loaded) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      console.error('Falha ao salvar', e);
-    }
-  }, [state, loaded]);
+    const timer = setTimeout(() => {
+      const ref = doc(db, 'livrocaixa', user.uid);
+      setDoc(ref, { state, updatedAt: new Date().toISOString() }).catch((e) => {
+        console.error('Falha ao salvar', e);
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [state, loaded, user.uid]);
 
   const totalIncome = useMemo(
     () => state.incomes.reduce((s, i) => s + (Number(i.amount) || 0), 0),
@@ -154,6 +179,22 @@ export default function App() {
   const finalValue = projection[36]?.total || 0;
   const totalInvested = investMonthly * 36;
   const totalGain = finalValue - totalInvested;
+
+  // "Prosperar": com o saldo livre do mês (balance), verifica em ordem de
+  // prioridade (ordem da lista) o que já dá pra comprar. Um item só é
+  // considerado liberado se, somado a todos os itens antes dele na lista,
+  // ainda couber dentro do saldo livre — assim a prioridade é sempre respeitada.
+  const wishlistComputed = useMemo(() => {
+    let acc = 0;
+    return state.wishlist.map((item) => {
+      acc += item.price;
+      const unlocked = balance > 0 && acc <= balance;
+      const monthsToSave = balance > 0 ? Math.ceil(acc / balance) : Infinity;
+      return { ...item, unlocked, monthsToSave };
+    });
+  }, [state.wishlist, balance]);
+
+  const nextWishlistUnlock = wishlistComputed.find((i) => !i.unlocked);
 
   const allocSum =
     state.investment.allocation.rendaFixa +
@@ -480,6 +521,10 @@ export default function App() {
             </div>
           );
         })}
+        <div className="fw-navitem" style={{ marginTop: 'auto' }} onClick={logout} title="Sair">
+          <LogOut size={17} />
+          <span className="label">Sair</span>
+        </div>
       </nav>
 
       <main className="fw-main">
@@ -497,6 +542,8 @@ export default function App() {
             finalValue={finalValue}
             expenses={state.expenses}
             setTab={setTab}
+            wishlist={wishlistComputed}
+            nextWishlistUnlock={nextWishlistUnlock}
           />
         )}
 
@@ -544,6 +591,33 @@ export default function App() {
           />
         )}
 
+        {tab === 'prosperar' && (
+          <ProsperarTab
+            wishlist={wishlistComputed}
+            balance={balance}
+            nextWishlistUnlock={nextWishlistUnlock}
+            addWishlistItem={(name, price) =>
+              setState((s) => ({
+                ...s,
+                wishlist: [...s.wishlist, { id: `w${Date.now()}`, name, price }],
+              }))
+            }
+            removeWishlistItem={(id) =>
+              setState((s) => ({ ...s, wishlist: s.wishlist.filter((w) => w.id !== id) }))
+            }
+            moveWishlistItem={(id, dir) =>
+              setState((s) => {
+                const list = [...s.wishlist];
+                const idx = list.findIndex((w) => w.id === id);
+                const swapWith = idx + dir;
+                if (swapWith < 0 || swapWith >= list.length) return s;
+                [list[idx], list[swapWith]] = [list[swapWith], list[idx]];
+                return { ...s, wishlist: list };
+              })
+            }
+          />
+        )}
+
         {tab === 'investimento' && (
           <InvestimentoTab
             investment={state.investment}
@@ -562,6 +636,24 @@ export default function App() {
   );
 }
 
+export default function App() {
+  const { user, checking } = useAuth();
+
+  if (checking) {
+    return (
+      <div style={{ padding: 40, fontFamily: 'IBM Plex Sans, sans-serif', color: '#4A5C55' }}>
+        Verificando login…
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return <AppShell user={user} />;
+}
+
 function ProgressBar({ value, gold }) {
   const pct = Math.min(100, Math.max(0, value * 100));
   return (
@@ -571,10 +663,37 @@ function ProgressBar({ value, gold }) {
   );
 }
 
-function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, investMonthly, balance, emergency, emergencyTarget, travel, finalValue, expenses, setTab }) {
+// Lê o saldo livre do mês e devolve uma leitura em texto da situação:
+// no vermelho (gastando mais que ganha), no limite (sobra pouco), ou
+// tranquilo (dá pra gastar algo fora da rotina).
+function getFinancialStatus(balance, totalIncome) {
+  const cushion = Math.max(100, totalIncome * 0.03); // "zona de aperto": até 3% da renda (mín. R$100)
+  if (balance < 0) {
+    return {
+      level: 'neg',
+      title: 'Atenção com os gastos',
+      text: `Seus gastos e contribuições estão ${fmtBRL(Math.abs(balance))} acima da sua renda este mês. Vale rever alguma despesa ou reduzir uma contribuição (reserva, viagem ou investimento) até as contas fecharem.`,
+    };
+  }
+  if (balance <= cushion) {
+    return {
+      level: 'neutral',
+      title: 'Contas em dia, sem muita folga',
+      text: `Suas contas fecham no positivo, mas sobra pouco (${fmtBRL(balance)}) pra gastar fora da rotina esse mês. Bom mês pra manter os gastos como estão.`,
+    };
+  }
+  return {
+    level: 'pos',
+    title: 'Você está indo bem',
+    text: `Suas metas e contas já estão cobertas, e sobrou ${fmtBRL(balance)} esse mês pra gastar com algo fora da rotina — dá uma olhada na aba Prosperar pra ver o que já pode tirar da lista.`,
+  };
+}
+
+function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, investMonthly, balance, emergency, emergencyTarget, travel, finalValue, expenses, setTab, wishlist, nextWishlistUnlock }) {
   const pieData = expenses
     .map((e) => ({ name: e.name, value: effectiveMonthlyAmount(e) }))
     .filter((e) => e.value > 0);
+  const status = getFinancialStatus(balance, totalIncome);
   return (
     <>
       <div className="fw-pagehead">
@@ -582,6 +701,23 @@ function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, invest
           <div className="fw-eyebrow">Visão geral</div>
           <h1>Painel</h1>
         </div>
+      </div>
+
+      <div
+        className="fw-card"
+        style={{
+          borderLeft: `4px solid var(--${status.level === 'neg' ? 'brick' : status.level === 'neutral' ? 'gold' : 'emerald'})`,
+          background: `var(--${status.level === 'neg' ? 'brick' : status.level === 'neutral' ? 'gold' : 'emerald'}-tint)`,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          className="fw-card-label"
+          style={{ color: `var(--${status.level === 'neg' ? 'brick' : status.level === 'neutral' ? 'gold' : 'emerald-dark'})` }}
+        >
+          {status.title}
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--ink)', marginTop: 6, lineHeight: 1.5 }}>{status.text}</div>
       </div>
 
       <div className="fw-cards">
@@ -686,6 +822,34 @@ function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, invest
             </button>
           </div>
         </div>
+
+        {wishlist && wishlist.length > 0 && (
+          <div className="fw-card" style={{ marginTop: 20 }}>
+            <div className="fw-card-label">Prosperar — o que dá pra comprar esse mês</div>
+            {wishlist.filter((w) => w.unlocked).length === 0 && (
+              <div style={{ fontSize: 13, color: 'var(--ink-soft, #5B6B63)', marginTop: 8 }}>
+                Nenhum item liberado ainda este mês.
+                {nextWishlistUnlock && (
+                  <> Com o saldo livre atual, "{nextWishlistUnlock.name}" ({fmtBRL(nextWishlistUnlock.price)})
+                  {' '}fica ao alcance em {nextWishlistUnlock.monthsToSave === Infinity ? '—' : `${nextWishlistUnlock.monthsToSave} ${nextWishlistUnlock.monthsToSave === 1 ? 'mês' : 'meses'}`}.</>
+                )}
+              </div>
+            )}
+            <div style={{ marginTop: 10 }}>
+              {wishlist.filter((w) => w.unlocked).map((w) => (
+                <div className="fw-row" key={w.id}>
+                  <span>✅ {w.name}</span>
+                  <span className="fw-num">{fmtBRL(w.price)}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <button className="fw-btn ghost" onClick={() => setTab('prosperar')}>
+                Ver lista completa <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -1099,6 +1263,145 @@ function ViagemTab({ travel, setTravel, remaining, months, onAporte }) {
             ))}
           </div>
         )}
+      </div>
+    </>
+  );
+}
+
+function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, removeWishlistItem, moveWishlistItem }) {
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    const p = parseFloat(price);
+    if (!name.trim() || !p || p <= 0) return;
+    addWishlistItem(name.trim(), p);
+    setName('');
+    setPrice('');
+  };
+
+  const unlockedCount = wishlist.filter((w) => w.unlocked).length;
+
+  return (
+    <>
+      <div className="fw-card">
+        <div className="fw-card-label">Prosperar</div>
+        <div style={{ fontSize: 13, color: '#5B6B63', marginTop: 4, lineHeight: 1.5 }}>
+          Cadastre aqui as coisas que você quer se dar de presente — roupa, tênis, sair com os
+          amigos, o que for. A lista funciona por prioridade: o item do topo é liberado primeiro.
+          Um item só é marcado como <b>liberado esse mês</b> quando o seu saldo livre atual
+          (depois de contas, reserva de emergência e viagem) já dá conta dele <b>e</b> de tudo que
+          está à frente dele na lista.
+        </div>
+
+        <div className="fw-row" style={{ marginTop: 16 }}>
+          <span>Saldo livre este mês</span>
+          <span className="fw-num" style={{ color: balance >= 0 ? 'var(--emerald-dark)' : 'var(--brick)' }}>
+            {fmtBRL(balance)}
+          </span>
+        </div>
+
+        <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+          <input
+            style={{ flex: 2, minWidth: 160, padding: '9px 11px', border: '1px solid var(--line, #DED7C4)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit' }}
+            placeholder="O que você quer comprar?"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            style={{ flex: 1, minWidth: 110, padding: '9px 11px', border: '1px solid var(--line, #DED7C4)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit' }}
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Preço (R$)"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+          <button className="fw-btn" type="submit">
+            <Plus size={14} /> Adicionar
+          </button>
+        </form>
+      </div>
+
+      <div className="fw-card" style={{ marginTop: 20 }}>
+        <div className="fw-card-label">
+          Sua lista ({unlockedCount} de {wishlist.length} liberado{unlockedCount === 1 ? '' : 's'})
+        </div>
+
+        {wishlist.length === 0 && (
+          <div style={{ fontSize: 13, color: '#5B6B63', marginTop: 10 }}>
+            Sua lista está vazia. Adicione o primeiro item ali em cima.
+          </div>
+        )}
+
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {wishlist.map((item, idx) => (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--line, #DED7C4)',
+                background: item.unlocked ? 'rgba(31,111,84,0.08)' : 'transparent',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <button
+                  className="fw-btn ghost"
+                  style={{ padding: 2 }}
+                  disabled={idx === 0}
+                  onClick={() => moveWishlistItem(item.id, -1)}
+                  title="Subir prioridade"
+                >
+                  <ArrowUp size={13} />
+                </button>
+                <button
+                  className="fw-btn ghost"
+                  style={{ padding: 2 }}
+                  disabled={idx === wishlist.length - 1}
+                  onClick={() => moveWishlistItem(item.id, 1)}
+                  title="Descer prioridade"
+                >
+                  <ArrowDown size={13} />
+                </button>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{item.name}</div>
+                <div style={{ fontSize: 12, color: '#5B6B63' }}>
+                  {item.unlocked
+                    ? 'Liberado esse mês ✅'
+                    : item.monthsToSave === Infinity
+                    ? 'Ainda sem saldo livre suficiente'
+                    : `Em ${item.monthsToSave} ${item.monthsToSave === 1 ? 'mês' : 'meses'} no ritmo atual`}
+                </div>
+              </div>
+
+              <div className="fw-num">{fmtBRL(item.price)}</div>
+
+              {item.unlocked && (
+                <button
+                  className="fw-btn ghost"
+                  title="Marcar como comprado"
+                  onClick={() => removeWishlistItem(item.id)}
+                >
+                  <Check size={14} />
+                </button>
+              )}
+              <button
+                className="fw-btn ghost"
+                title="Remover da lista"
+                onClick={() => removeWishlistItem(item.id)}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );
