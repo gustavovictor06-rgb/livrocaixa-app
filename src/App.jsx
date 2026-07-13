@@ -21,7 +21,7 @@ const defaultState = {
     { id: 'a2', name: 'Alimentação', amount: 900, installment: false, totalInstallments: 1, paidInstallments: 0 },
     { id: 'a3', name: 'Transporte', amount: 400, installment: false, totalInstallments: 1, paidInstallments: 0 },
     { id: 'a4', name: 'Contas fixas', amount: 350, installment: false, totalInstallments: 1, paidInstallments: 0 },
-    { id: 'a5', name: 'Moto (parcelada)', amount: 650, installment: true, totalInstallments: 48, paidInstallments: 5 },
+    { id: 'a5', name: 'Moto (parcelada)', amount: 650, installment: true, totalInstallments: 48, paidInstallments: 5, hasDownPayment: true, downPayment: 3000 },
   ],
   emergency: { multiplier: 6, current: 1500, monthlyContribution: 300, entries: [] },
   travel: {
@@ -225,7 +225,7 @@ function AppShell({ user }) {
       ...s,
       expenses: [
         ...s.expenses,
-        { id: uid(), name: 'Nova despesa', amount: 0, installment: false, totalInstallments: 1, paidInstallments: 0 },
+        { id: uid(), name: 'Nova despesa', amount: 0, installment: false, totalInstallments: 1, paidInstallments: 0, hasDownPayment: false, downPayment: 0 },
       ],
     }));
   };
@@ -920,6 +920,35 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
           </div>
 
           <ProgressBar value={(e.paidInstallments || 0) / (e.totalInstallments || 1)} />
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)', margin: '10px 0' }}>
+            <input
+              type="checkbox"
+              checked={!!e.hasDownPayment}
+              onChange={(ev) => updateExpense(e.id, 'hasDownPayment', ev.target.checked)}
+            />
+            Dei entrada nessa compra
+          </label>
+
+          {e.hasDownPayment && (
+            <div className="fw-field" style={{ marginBottom: 10, maxWidth: 200 }}>
+              <label>Valor da entrada</label>
+              <input
+                type="number"
+                min="0"
+                value={e.downPayment || 0}
+                onChange={(ev) => updateExpense(e.id, 'downPayment', Math.max(0, Number(ev.target.value)))}
+              />
+            </div>
+          )}
+
+          <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
+            Valor total da compra:{' '}
+            <span className="fw-num" style={{ color: 'var(--ink)' }}>
+              {fmtBRL((e.hasDownPayment ? Number(e.downPayment) || 0 : 0) + e.totalInstallments * (Number(e.amount) || 0))}
+            </span>
+            {e.hasDownPayment ? ` (entrada de ${fmtBRL(e.downPayment || 0)} + parcelas)` : ''}
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <span style={{ fontSize: 13 }}>
