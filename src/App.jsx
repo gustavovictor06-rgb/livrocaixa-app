@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   LayoutDashboard, Wallet, ShieldCheck, Plane, TrendingUp,
-  Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check
+  Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check, Sun, Moon
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase.js';
@@ -15,13 +15,14 @@ import Login from './Login.jsx';
 const STORAGE_KEY = 'financas:estado:v1';
 
 const defaultState = {
+  theme: 'light',
   incomes: [{ id: 'i1', name: 'Salário', amount: 6000 }],
   expenses: [
     { id: 'a1', name: 'Moradia', amount: 1800, installment: false, totalInstallments: 1, paidInstallments: 0 },
     { id: 'a2', name: 'Alimentação', amount: 900, installment: false, totalInstallments: 1, paidInstallments: 0 },
     { id: 'a3', name: 'Transporte', amount: 400, installment: false, totalInstallments: 1, paidInstallments: 0 },
     { id: 'a4', name: 'Contas fixas', amount: 350, installment: false, totalInstallments: 1, paidInstallments: 0 },
-    { id: 'a5', name: 'Moto (parcelada)', amount: 650, installment: true, totalInstallments: 48, paidInstallments: 5, hasDownPayment: true, downPayment: 3000 },
+    { id: 'a5', name: 'Moto (parcelada)', amount: 650, installment: true, totalPrice: 34200, totalInstallments: 48, paidInstallments: 5, hasDownPayment: true, downPayment: 3000 },
   ],
   emergency: { multiplier: 6, current: 1500, monthlyContribution: 300, entries: [] },
   travel: {
@@ -220,12 +221,27 @@ function AppShell({ user }) {
       expenses: s.expenses.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
     }));
   };
+  // Atualiza campos do parcelamento (valor total, qtd. de parcelas, entrada) e
+  // recalcula sozinho o valor de cada parcela: (total - entrada) / qtd. parcelas.
+  const updateInstallmentCalc = (id, patch) => {
+    setState((s) => ({
+      ...s,
+      expenses: s.expenses.map((e) => {
+        if (e.id !== id) return e;
+        const merged = { ...e, ...patch };
+        const total = Number(merged.totalPrice) || 0;
+        const down = merged.hasDownPayment ? Number(merged.downPayment) || 0 : 0;
+        const n = Math.max(1, Number(merged.totalInstallments) || 1);
+        return { ...merged, amount: Math.max(0, (total - down) / n) };
+      }),
+    }));
+  };
   const addExpense = () => {
     setState((s) => ({
       ...s,
       expenses: [
         ...s.expenses,
-        { id: uid(), name: 'Nova despesa', amount: 0, installment: false, totalInstallments: 1, paidInstallments: 0, hasDownPayment: false, downPayment: 0 },
+        { id: uid(), name: 'Nova despesa', amount: 0, installment: false, totalPrice: 0, totalInstallments: 1, paidInstallments: 0, hasDownPayment: false, downPayment: 0 },
       ],
     }));
   };
@@ -269,7 +285,19 @@ function AppShell({ user }) {
   }
 
   return (
-    <div className="fw-root">
+    <div className={`fw-root${state.theme === 'dark' ? ' dark' : ''}`}>
+      <button
+        onClick={() => setState((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }))}
+        title={state.theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+        style={{
+          position: 'fixed', top: 18, right: 22, zIndex: 50,
+          width: 38, height: 38, borderRadius: '50%',
+          border: '1px solid var(--line)', background: 'var(--paper-card)', color: 'var(--ink)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}
+      >
+        {state.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -300,7 +328,7 @@ function AppShell({ user }) {
         .fw-sidebar {
           width: 220px;
           flex-shrink: 0;
-          background: var(--ink);
+          background: #1C2B26;
           color: #EFEAE0;
           padding: 28px 0;
           display: flex;
@@ -417,6 +445,20 @@ function AppShell({ user }) {
 
         .fw-field { margin-bottom: 16px; }
         .fw-field label { display: block; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .fw-root.dark {
+          --paper: #1B1F1D;
+          --paper-card: #242A27;
+          --line: #3A423D;
+          --ink: #EDEAE2;
+          --ink-soft: #A3AFA8;
+          --emerald: #3FA383;
+          --emerald-dark: #6FCFAA;
+          --emerald-tint: rgba(63,163,131,0.16);
+          --gold: #D9A94B;
+          --gold-tint: rgba(184,134,46,0.2);
+          --brick: #E08670;
+          --brick-tint: rgba(139,58,43,0.25);
+        }
         .fw-field input, .fw-field select {
           width: 100%;
           font-family: 'IBM Plex Mono', monospace;
@@ -424,7 +466,7 @@ function AppShell({ user }) {
           padding: 9px 10px;
           border: 1px solid var(--line);
           border-radius: 3px;
-          background: #fff;
+          background: var(--paper-card);
           color: var(--ink);
         }
         .fw-field input:focus, .fw-field select:focus { outline: none; border-color: var(--emerald); }
@@ -457,9 +499,14 @@ function AppShell({ user }) {
         .fw-seg { display: flex; gap: 8px; margin-bottom: 4px; }
         .fw-seg button {
           flex: 1; padding: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;
-          border: 1px solid var(--line); background: #fff; border-radius: 3px; cursor: pointer; color: var(--ink-soft);
+          border: 1px solid var(--line); background: var(--paper-card); border-radius: 3px; cursor: pointer; color: var(--ink-soft);
         }
         .fw-seg button.active { background: var(--emerald-tint); border-color: var(--emerald); color: var(--emerald-dark); font-weight: 600; }
+        .fw-themebtn {
+          display: flex; align-items: center; gap: 10px; padding: 10px 24px; margin-top: 4px;
+          color: #B7C2BA; cursor: pointer; font-size: 13px; background: none; border: none; width: 100%; text-align: left;
+        }
+        .fw-themebtn:hover { color: #fff; }
 
         .fw-stamps { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
         .fw-stamp {
@@ -556,6 +603,7 @@ function AppShell({ user }) {
             totalIncome={totalIncome}
             expenses={state.expenses}
             updateExpense={updateExpense}
+            updateInstallmentCalc={updateInstallmentCalc}
             addExpense={addExpense}
             removeExpense={removeExpense}
             markInstallmentPaid={markInstallmentPaid}
@@ -855,7 +903,7 @@ function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, invest
   );
 }
 
-function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
+function ExpenseRow({ e, updateExpense, updateInstallmentCalc, removeExpense, markInstallmentPaid }) {
   const quitado = isQuitado(e);
   const remaining = remainingInstallments(e);
 
@@ -872,8 +920,10 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
           <input
             type="number"
             className="fw-amount-input"
-            value={e.amount}
+            disabled={!!e.installment}
+            value={e.installment ? Math.round((e.amount || 0) * 100) / 100 : e.amount}
             onChange={(ev) => updateExpense(e.id, 'amount', Number(ev.target.value))}
+            title={e.installment ? 'Calculado automaticamente a partir do valor total da compra' : undefined}
           />
           <button className="fw-iconbtn" onClick={() => removeExpense(e.id)}>
             <Trash2 size={16} />
@@ -885,7 +935,17 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
         <input
           type="checkbox"
           checked={!!e.installment}
-          onChange={(ev) => updateExpense(e.id, 'installment', ev.target.checked)}
+          onChange={(ev) => {
+            if (ev.target.checked) {
+              // Ao marcar como parcelada, usa o valor atual como ponto de partida do total.
+              updateInstallmentCalc(e.id, {
+                installment: true,
+                totalPrice: e.totalPrice || e.amount || 0,
+              });
+            } else {
+              updateExpense(e.id, 'installment', false);
+            }
+          }}
         />
         Essa despesa é parcelada
       </label>
@@ -894,12 +954,21 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
         <div style={{ marginTop: 10, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 4, padding: '12px 14px' }}>
           <div className="fw-grid3">
             <div className="fw-field" style={{ marginBottom: 0 }}>
+              <label>Valor total da compra</label>
+              <input
+                type="number"
+                min="0"
+                value={e.totalPrice || 0}
+                onChange={(ev) => updateInstallmentCalc(e.id, { totalPrice: Math.max(0, Number(ev.target.value)) })}
+              />
+            </div>
+            <div className="fw-field" style={{ marginBottom: 0 }}>
               <label>Total de parcelas</label>
               <input
                 type="number"
                 min="1"
                 value={e.totalInstallments}
-                onChange={(ev) => updateExpense(e.id, 'totalInstallments', Math.max(1, Number(ev.target.value)))}
+                onChange={(ev) => updateInstallmentCalc(e.id, { totalInstallments: Math.max(1, Number(ev.target.value)) })}
               />
             </div>
             <div className="fw-field" style={{ marginBottom: 0 }}>
@@ -913,19 +982,13 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
                 }
               />
             </div>
-            <div className="fw-field" style={{ marginBottom: 0 }}>
-              <label>Valor da parcela</label>
-              <input type="text" disabled value={fmtBRL(e.amount)} />
-            </div>
           </div>
 
-          <ProgressBar value={(e.paidInstallments || 0) / (e.totalInstallments || 1)} />
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)', margin: '10px 0' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)', margin: '12px 0' }}>
             <input
               type="checkbox"
               checked={!!e.hasDownPayment}
-              onChange={(ev) => updateExpense(e.id, 'hasDownPayment', ev.target.checked)}
+              onChange={(ev) => updateInstallmentCalc(e.id, { hasDownPayment: ev.target.checked })}
             />
             Dei entrada nessa compra
           </label>
@@ -937,17 +1000,28 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
                 type="number"
                 min="0"
                 value={e.downPayment || 0}
-                onChange={(ev) => updateExpense(e.id, 'downPayment', Math.max(0, Number(ev.target.value)))}
+                onChange={(ev) => updateInstallmentCalc(e.id, { downPayment: Math.max(0, Number(ev.target.value)) })}
               />
             </div>
           )}
 
-          <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
-            Valor total da compra:{' '}
-            <span className="fw-num" style={{ color: 'var(--ink)' }}>
-              {fmtBRL((e.hasDownPayment ? Number(e.downPayment) || 0 : 0) + e.totalInstallments * (Number(e.amount) || 0))}
-            </span>
-            {e.hasDownPayment ? ` (entrada de ${fmtBRL(e.downPayment || 0)} + parcelas)` : ''}
+          <div
+            style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: 'var(--emerald-tint)', border: '1px solid var(--emerald)', borderRadius: 4,
+              padding: '8px 12px', marginBottom: 10,
+            }}
+          >
+            <span style={{ fontSize: 12.5, color: 'var(--emerald-dark)', fontWeight: 600 }}>Valor de cada parcela</span>
+            <span className="fw-num" style={{ fontSize: 15, fontWeight: 600, color: 'var(--emerald-dark)' }}>{fmtBRL(e.amount)}</span>
+          </div>
+
+          <ProgressBar value={(e.paidInstallments || 0) / (e.totalInstallments || 1)} />
+
+          <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', margin: '10px 0' }}>
+            {e.hasDownPayment
+              ? `Entrada de ${fmtBRL(e.downPayment || 0)} + ${e.totalInstallments}x de ${fmtBRL(e.amount)}`
+              : `${e.totalInstallments}x de ${fmtBRL(e.amount)}, sem entrada`}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -977,7 +1051,7 @@ function ExpenseRow({ e, updateExpense, removeExpense, markInstallmentPaid }) {
 
 function RendaTab({
   incomes, updateIncome, addIncome, removeIncome, totalIncome,
-  expenses, updateExpense, addExpense, removeExpense, markInstallmentPaid, totalExpenses,
+  expenses, updateExpense, updateInstallmentCalc, addExpense, removeExpense, markInstallmentPaid, totalExpenses,
   grossBalance, committed, emergency, travel, investMonthly, balance,
 }) {
   return (
@@ -1039,6 +1113,7 @@ function RendaTab({
             key={e.id}
             e={e}
             updateExpense={updateExpense}
+            updateInstallmentCalc={updateInstallmentCalc}
             removeExpense={removeExpense}
             markInstallmentPaid={markInstallmentPaid}
           />
@@ -1316,7 +1391,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
     <>
       <div className="fw-card">
         <div className="fw-card-label">Prosperar</div>
-        <div style={{ fontSize: 13, color: '#5B6B63', marginTop: 4, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4, lineHeight: 1.5 }}>
           Cadastre aqui as coisas que você quer se dar de presente — roupa, tênis, sair com os
           amigos, o que for. A lista funciona por prioridade: o item do topo é liberado primeiro.
           Um item só é marcado como <b>liberado esse mês</b> quando o seu saldo livre atual
@@ -1359,7 +1434,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
         </div>
 
         {wishlist.length === 0 && (
-          <div style={{ fontSize: 13, color: '#5B6B63', marginTop: 10 }}>
+          <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 10 }}>
             Sua lista está vazia. Adicione o primeiro item ali em cima.
           </div>
         )}
@@ -1401,7 +1476,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
 
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{item.name}</div>
-                <div style={{ fontSize: 12, color: '#5B6B63' }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
                   {item.unlocked
                     ? 'Liberado esse mês ✅'
                     : item.monthsToSave === Infinity
