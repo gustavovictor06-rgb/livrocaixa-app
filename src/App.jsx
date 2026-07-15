@@ -23,6 +23,7 @@ const MONTH_NAMES = [
 
 const defaultState = {
   theme: 'light',
+  hasSeenTour: false,
   currentMonth: new Date().getMonth() + 1,
   currentYear: new Date().getFullYear(),
   history: {},
@@ -119,6 +120,54 @@ const NAV = [
   { id: 'historico', label: 'Histórico do Ano', icon: History },
 ];
 
+const TOUR_STEPS = [
+  {
+    icon: LayoutDashboard,
+    title: 'Bem-vindo ao LivroCaixa',
+    text: 'Esse é o seu planejador financeiro pessoal. Vamos passar rapidinho pelas partes principais, pra você já sair sabendo lançar suas coisas.',
+  },
+  {
+    icon: LayoutDashboard,
+    title: 'Painel',
+    text: 'É a visão geral: mostra o mês atual, um aviso colorido dizendo se você está gastando demais, no limite ou com folga, e um resumo de renda, despesas e metas.',
+  },
+  {
+    icon: Wallet,
+    title: 'Renda & Despesas',
+    text: 'Aqui você lança suas fontes de renda (salário, freelas...) e as despesas fixas e variáveis. Pra compras parceladas, marque "Essa despesa é parcelada", digite o valor total da compra e a quantidade de parcelas — o valor de cada parcela é calculado sozinho.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Reserva de Emergência',
+    text: 'Defina uma meta e quanto quer guardar por mês. O app acompanha o progresso e estima quantos meses faltam pra chegar lá.',
+  },
+  {
+    icon: Plane,
+    title: 'Viagem dos Sonhos',
+    text: 'Igual à reserva de emergência, mas pra sua próxima viagem: meta, contribuição mensal e progresso.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Prosperar',
+    text: 'Sua lista de desejos (roupa, tênis, sair com os amigos...). Você prioriza a ordem, e o app libera um item de cada vez, conforme sobra dinheiro no mês — sempre depois de reserva e viagem estarem em dia.',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Plano de Investimento',
+    text: 'Simule quanto investir por mês, como distribuir entre renda fixa, FIIs e ações, e veja a projeção de quanto isso pode virar em alguns anos.',
+  },
+  {
+    icon: History,
+    title: 'Histórico do Ano',
+    text: 'No Painel, quando terminar de lançar tudo, clique em "Fechar mês" — isso guarda uma foto daquele mês aqui no histórico e avança as parcelas em aberto. Aqui você pode ver mês a mês ou o ano todo num gráfico.',
+  },
+  {
+    icon: Sun,
+    title: 'Tema e ajuda',
+    text: 'O botão no canto superior direito troca entre tema claro e escuro. E esse tour você pode reabrir a qualquer momento clicando no "?" ao lado dele. Bom uso!',
+  },
+];
+
 const PIE_COLORS = ['#1F6F54', '#B8862E', '#8B3A2B', '#4A5C55', '#5E8C7C', '#C9A64A'];
 
 function AppShell({ user }) {
@@ -126,6 +175,7 @@ function AppShell({ user }) {
   const [state, setState] = useState(defaultState);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState('painel');
+  const [showTour, setShowTour] = useState(false);
 
   // Carrega os dados do Firestore, no documento do usuário logado.
   // Cada usuário só enxerga o próprio documento (veja firestore.rules).
@@ -146,6 +196,18 @@ function AppShell({ user }) {
     })();
     return () => { cancelled = true; };
   }, [user.uid]);
+
+  // Mostra o tour guiado automaticamente na primeira vez que os dados carregam,
+  // se essa pessoa ainda não viu.
+  useEffect(() => {
+    if (loaded && !state.hasSeenTour) setShowTour(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
+
+  const finishTour = () => {
+    setShowTour(false);
+    setState((s) => (s.hasSeenTour ? s : { ...s, hasSeenTour: true }));
+  };
 
   // Salva no Firestore (documento do próprio usuário) sempre que o estado muda,
   // com um pequeno debounce para não gravar a cada tecla digitada.
@@ -375,6 +437,19 @@ function AppShell({ user }) {
   return (
     <div className={`fw-root${state.theme === 'dark' ? ' dark' : ''}`}>
       <button
+        onClick={() => setShowTour(true)}
+        title="Ver o tour guiado"
+        style={{
+          position: 'fixed', top: 18, right: 68, zIndex: 50,
+          width: 38, height: 38, borderRadius: '50%',
+          border: '1px solid var(--line)', background: 'var(--paper-card)', color: 'var(--ink)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          fontWeight: 700, fontSize: 15,
+        }}
+      >
+        ?
+      </button>
+      <button
         onClick={() => setState((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }))}
         title={state.theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
         style={{
@@ -386,6 +461,7 @@ function AppShell({ user }) {
       >
         {state.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
       </button>
+      {showTour && <TourGuide onFinish={finishTour} />}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -820,6 +896,77 @@ function ProgressBar({ value, gold }) {
   return (
     <div className="fw-progress-track">
       <div className={`fw-progress-fill ${gold ? 'gold' : ''}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function TourGuide({ onFinish }) {
+  const [step, setStep] = useState(0);
+  const total = TOUR_STEPS.length;
+  const current = TOUR_STEPS[step];
+  const Icon = current.icon;
+  const isLast = step === total - 1;
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}
+      onClick={onFinish}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--paper-card)', color: 'var(--ink)', borderRadius: 12,
+          maxWidth: 420, width: '100%', padding: '28px 26px', border: '1px solid var(--line)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+        }}
+      >
+        <div
+          style={{
+            width: 44, height: 44, borderRadius: '50%', background: 'var(--emerald-tint)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, color: 'var(--emerald-dark)',
+          }}
+        >
+          <Icon size={20} />
+        </div>
+
+        <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{current.title}</div>
+        <div style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.55, marginBottom: 22 }}>{current.text}</div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
+          {TOUR_STEPS.map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: i === step ? 'var(--emerald)' : 'var(--line)',
+              }}
+            />
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            onClick={onFinish}
+            style={{ background: 'none', border: 'none', color: 'var(--ink-soft)', fontSize: 13, cursor: 'pointer' }}
+          >
+            Pular
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {step > 0 && (
+              <button className="fw-btn ghost" onClick={() => setStep((s) => s - 1)}>
+                Voltar
+              </button>
+            )}
+            <button className="fw-btn" onClick={() => (isLast ? onFinish() : setStep((s) => s + 1))}>
+              {isLast ? 'Começar a usar' : 'Próximo'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
