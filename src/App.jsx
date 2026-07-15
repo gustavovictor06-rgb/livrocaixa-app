@@ -136,7 +136,7 @@ function AppShell({ user }) {
         const ref = doc(db, 'livrocaixa', user.uid);
         const snap = await getDoc(ref);
         if (!cancelled && snap.exists()) {
-          setState(snap.data().state || defaultState);
+          setState({ ...defaultState, ...(snap.data().state || {}) });
         }
       } catch (e) {
         console.error('Falha ao carregar dados do usuário', e);
@@ -241,6 +241,8 @@ function AppShell({ user }) {
         committed,
         investMonthly,
         categorias,
+        expensesSnapshot: JSON.parse(JSON.stringify(s.expenses)),
+        incomesSnapshot: JSON.parse(JSON.stringify(s.incomes)),
         closedAt: new Date().toISOString(),
       };
       const advancedExpenses = s.expenses.map((e) => {
@@ -261,6 +263,29 @@ function AppShell({ user }) {
         history: { ...s.history, [key]: snapshot },
         currentMonth: nextMonth,
         currentYear: nextYear,
+      };
+    });
+  };
+
+  // Desfaz o fechamento do mês mais recente: só funciona se a "key" for
+  // exatamente o mês imediatamente anterior ao atual (pra não bagunçar a
+  // sequência reabrindo um mês antigo no meio do histórico).
+  const reopenMonth = (key) => {
+    setState((s) => {
+      const snap = s.history[key];
+      if (!snap) return s;
+      const prevMonth = s.currentMonth === 1 ? 12 : s.currentMonth - 1;
+      const prevYear = s.currentMonth === 1 ? s.currentYear - 1 : s.currentYear;
+      const isMostRecent = snap.month === prevMonth && snap.year === prevYear;
+      if (!isMostRecent) return s;
+      const { [key]: _removed, ...restHistory } = s.history;
+      return {
+        ...s,
+        expenses: snap.expensesSnapshot || s.expenses,
+        incomes: snap.incomesSnapshot || s.incomes,
+        currentMonth: snap.month,
+        currentYear: snap.year,
+        history: restHistory,
       };
     });
   };
@@ -492,6 +517,7 @@ function AppShell({ user }) {
           font-family: inherit;
           border: none;
           background: transparent;
+          color: var(--ink);
           font-size: 14px;
           padding: 4px 2px;
           border-bottom: 1px solid transparent;
@@ -499,6 +525,11 @@ function AppShell({ user }) {
         .fw-row input[type="text"]:focus, .fw-row input[type="number"]:focus {
           outline: none;
           border-bottom: 1px solid var(--emerald);
+        }
+        .fw-row input:disabled {
+          color: var(--ink-soft);
+          -webkit-text-fill-color: var(--ink-soft);
+          opacity: 1;
         }
         .fw-amount-input {
           font-family: 'IBM Plex Mono', monospace;
@@ -662,6 +693,8 @@ function AppShell({ user }) {
 
         {tab === 'renda' && (
           <RendaTab
+            currentMonth={state.currentMonth}
+            currentYear={state.currentYear}
             incomes={state.incomes}
             updateIncome={updateIncome}
             addIncome={addIncome}
@@ -755,6 +788,8 @@ function AppShell({ user }) {
             totalExpenses={totalExpenses}
             balance={balance}
             expenses={state.expenses}
+            reopenMonth={reopenMonth}
+            setTab={setTab}
           />
         )}
       </main>
@@ -840,7 +875,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
         <div>
           <div className="fw-card-label">Mês atual</div>
           <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>
-            {MONTH_NAMES[currentMonth - 1]} de {currentYear}
+            {MONTH_NAMES[(currentMonth || 1) - 1]} de {currentYear || new Date().getFullYear()}
           </div>
         </div>
         {!confirmClose ? (
@@ -1169,7 +1204,7 @@ function ExpenseRow({ e, updateExpense, updateInstallmentCalc, removeExpense, ma
 function RendaTab({
   incomes, updateIncome, addIncome, removeIncome, totalIncome,
   expenses, updateExpense, updateInstallmentCalc, addExpense, removeExpense, markInstallmentPaid, totalExpenses,
-  grossBalance, committed, emergency, travel, investMonthly, balance,
+  grossBalance, committed, emergency, travel, investMonthly, balance, currentMonth, currentYear,
 }) {
   return (
     <>
@@ -1178,6 +1213,16 @@ function RendaTab({
           <div className="fw-eyebrow">Entradas e saídas</div>
           <h1>Renda & Despesas</h1>
         </div>
+      </div>
+
+      <div
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13,
+          background: 'var(--emerald-tint)', color: 'var(--emerald-dark)', fontWeight: 600,
+          padding: '7px 14px', borderRadius: 20, marginBottom: 20,
+        }}
+      >
+        Editando: {MONTH_NAMES[(currentMonth || 1) - 1]} de {currentYear || new Date().getFullYear()}
       </div>
 
       <div className="fw-section">
@@ -1784,9 +1829,10 @@ function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMon
   );
 }
 
-function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalExpenses, balance, expenses }) {
+function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalExpenses, balance, expenses, reopenMonth, setTab }) {
   const [view, setView] = useState('mes'); // 'mes' | 'ano'
   const [selectedKey, setSelectedKey] = useState(null);
+  const [confirmReopen, setConfirmReopen] = useState(false);
 
   // Monta a lista de meses do ano atual: os já fechados (com a "foto" que foi
   // guardada) + o mês corrente em aberto (com os números de agora, ao vivo).
@@ -1894,9 +1940,40 @@ function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalEx
                   </div>
                 </div>
 
-                <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 14 }}>
-                  {MONTH_NAMES[active.month - 1]} de {active.year}
-                  {active.open ? ' — mês em aberto, números de agora' : ' — mês fechado'}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+                    {MONTH_NAMES[active.month - 1]} de {active.year}
+                    {active.open ? ' — mês em aberto, números de agora' : ' — mês fechado'}
+                  </div>
+
+                  {!active.open && (() => {
+                    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+                    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+                    const isMostRecent = active.month === prevMonth && active.year === prevYear;
+                    if (!isMostRecent) return null;
+                    return !confirmReopen ? (
+                      <button className="fw-btn ghost" onClick={() => setConfirmReopen(true)}>
+                        Reabrir este mês
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink-soft)' }}>
+                        <span>Isso desfaz o fechamento e volta pra edição. Confirma?</span>
+                        <button
+                          className="fw-btn"
+                          onClick={() => {
+                            reopenMonth(active.key);
+                            setConfirmReopen(false);
+                            setTab('renda');
+                          }}
+                        >
+                          Sim, reabrir
+                        </button>
+                        <button className="fw-btn ghost" onClick={() => setConfirmReopen(false)}>
+                          Cancelar
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ background: 'var(--paper-card)', border: '1px solid var(--line)', borderRadius: 8, padding: '16px 18px' }}>
