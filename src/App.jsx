@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  ComposedChart, Bar
 } from 'recharts';
 import {
   LayoutDashboard, Wallet, ShieldCheck, Plane, TrendingUp,
-  Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check, Sun, Moon
+  Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check, Sun, Moon,
+  CalendarCheck, History
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase.js';
@@ -14,8 +16,16 @@ import Login from './Login.jsx';
 
 const STORAGE_KEY = 'financas:estado:v1';
 
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
 const defaultState = {
   theme: 'light',
+  currentMonth: new Date().getMonth() + 1,
+  currentYear: new Date().getFullYear(),
+  history: {},
   incomes: [{ id: 'i1', name: 'Salário', amount: 6000 }],
   expenses: [
     { id: 'a1', name: 'Moradia', amount: 1800, installment: false, totalInstallments: 1, paidInstallments: 0 },
@@ -51,6 +61,14 @@ const defaultState = {
 
 const fmtBRL = (v) =>
   (isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Versão compacta pra caber nos eixos do gráfico (ex: R$ 1,2 mil)
+const fmtBRLShort = (v) => {
+  const n = isFinite(v) ? v : 0;
+  const abs = Math.abs(n);
+  if (abs >= 1000) return `${(n / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`;
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+};
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -98,6 +116,7 @@ const NAV = [
   { id: 'viagem', label: 'Viagem', icon: Plane },
   { id: 'prosperar', label: 'Prosperar', icon: Sparkles },
   { id: 'investimento', label: 'Plano de Investimento', icon: TrendingUp },
+  { id: 'historico', label: 'Histórico do Ano', icon: History },
 ];
 
 const PIE_COLORS = ['#1F6F54', '#B8862E', '#8B3A2B', '#4A5C55', '#5E8C7C', '#C9A64A'];
@@ -201,6 +220,50 @@ function AppShell({ user }) {
     state.investment.allocation.rendaFixa +
     state.investment.allocation.fiis +
     state.investment.allocation.acoes;
+
+  // Fecha o mês atual: guarda uma "foto" dos números desse mês no histórico,
+  // avança 1 parcela em cada compra parcelada ainda em aberto, e move
+  // mês/ano atual pro próximo. Renda e despesas fixas continuam do jeito
+  // que estão (só as parcelas mudam).
+  const closeMonth = () => {
+    setState((s) => {
+      const key = `${s.currentYear}-${String(s.currentMonth).padStart(2, '0')}`;
+      const categorias = s.expenses
+        .map((e) => ({ name: e.name, value: effectiveMonthlyAmount(e) }))
+        .filter((c) => c.value > 0);
+      const snapshot = {
+        year: s.currentYear,
+        month: s.currentMonth,
+        totalIncome,
+        totalExpenses,
+        balance,
+        grossBalance,
+        committed,
+        investMonthly,
+        categorias,
+        closedAt: new Date().toISOString(),
+      };
+      const advancedExpenses = s.expenses.map((e) => {
+        if (!e.installment) return e;
+        const rem = Math.max(0, (e.totalInstallments || 0) - (e.paidInstallments || 0));
+        if (rem <= 0) return e;
+        return { ...e, paidInstallments: (e.paidInstallments || 0) + 1 };
+      });
+      let nextMonth = s.currentMonth + 1;
+      let nextYear = s.currentYear;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear += 1;
+      }
+      return {
+        ...s,
+        expenses: advancedExpenses,
+        history: { ...s.history, [key]: snapshot },
+        currentMonth: nextMonth,
+        currentYear: nextYear,
+      };
+    });
+  };
 
   const updateIncome = (id, field, value) => {
     setState((s) => ({
@@ -577,6 +640,9 @@ function AppShell({ user }) {
       <main className="fw-main">
         {tab === 'painel' && (
           <PainelTab
+            currentMonth={state.currentMonth}
+            currentYear={state.currentYear}
+            closeMonth={closeMonth}
             totalIncome={totalIncome}
             totalExpenses={totalExpenses}
             grossBalance={grossBalance}
@@ -679,6 +745,18 @@ function AppShell({ user }) {
             allocSum={allocSum}
           />
         )}
+
+        {tab === 'historico' && (
+          <HistoricoTab
+            history={state.history}
+            currentMonth={state.currentMonth}
+            currentYear={state.currentYear}
+            totalIncome={totalIncome}
+            totalExpenses={totalExpenses}
+            balance={balance}
+            expenses={state.expenses}
+          />
+        )}
       </main>
     </div>
   );
@@ -737,11 +815,12 @@ function getFinancialStatus(balance, totalIncome) {
   };
 }
 
-function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, investMonthly, balance, emergency, emergencyTarget, travel, finalValue, expenses, setTab, wishlist, nextWishlistUnlock }) {
+function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalExpenses, grossBalance, committed, investMonthly, balance, emergency, emergencyTarget, travel, finalValue, expenses, setTab, wishlist, nextWishlistUnlock }) {
   const pieData = expenses
     .map((e) => ({ name: e.name, value: effectiveMonthlyAmount(e) }))
     .filter((e) => e.value > 0);
   const status = getFinancialStatus(balance, totalIncome);
+  const [confirmClose, setConfirmClose] = useState(false);
   return (
     <>
       <div className="fw-pagehead">
@@ -749,6 +828,44 @@ function PainelTab({ totalIncome, totalExpenses, grossBalance, committed, invest
           <div className="fw-eyebrow">Visão geral</div>
           <h1>Painel</h1>
         </div>
+      </div>
+
+      <div
+        className="fw-card"
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: 12, marginBottom: 16,
+        }}
+      >
+        <div>
+          <div className="fw-card-label">Mês atual</div>
+          <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>
+            {MONTH_NAMES[currentMonth - 1]} de {currentYear}
+          </div>
+        </div>
+        {!confirmClose ? (
+          <button className="fw-btn ghost" onClick={() => setConfirmClose(true)}>
+            <CalendarCheck size={15} /> Fechar mês
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink-soft)' }}>
+            <span>
+              Isso guarda esse mês no histórico e avança as parcelas em aberto. Confirma?
+            </span>
+            <button
+              className="fw-btn"
+              onClick={() => {
+                closeMonth();
+                setConfirmClose(false);
+              }}
+            >
+              Sim, fechar
+            </button>
+            <button className="fw-btn ghost" onClick={() => setConfirmClose(false)}>
+              Cancelar
+            </button>
+          </div>
+        )}
       </div>
 
       <div
@@ -1662,6 +1779,166 @@ function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMon
         de retorno. Rentabilidade passada não garante rentabilidade futura, e todo investimento envolve risco. Este
         painel não constitui recomendação de investimento — para decisões reais, consulte um profissional certificado
         (CVM/ANBIMA).
+      </div>
+    </>
+  );
+}
+
+function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalExpenses, balance, expenses }) {
+  const [view, setView] = useState('mes'); // 'mes' | 'ano'
+  const [selectedKey, setSelectedKey] = useState(null);
+
+  // Monta a lista de meses do ano atual: os já fechados (com a "foto" que foi
+  // guardada) + o mês corrente em aberto (com os números de agora, ao vivo).
+  const months = useMemo(() => {
+    const closed = Object.entries(history)
+      .map(([key, h]) => ({ key, ...h }))
+      .filter((h) => h.year === currentYear)
+      .sort((a, b) => a.month - b.month);
+
+    const currentKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    const alreadyHasCurrent = closed.some((h) => h.month === currentMonth);
+    if (alreadyHasCurrent) return closed;
+
+    const liveCategorias = expenses
+      .map((e) => ({ name: e.name, value: effectiveMonthlyAmount(e) }))
+      .filter((c) => c.value > 0);
+
+    return [
+      ...closed,
+      {
+        key: currentKey,
+        year: currentYear,
+        month: currentMonth,
+        totalIncome,
+        totalExpenses,
+        balance,
+        categorias: liveCategorias,
+        open: true,
+      },
+    ];
+  }, [history, currentYear, currentMonth, totalIncome, totalExpenses, balance, expenses]);
+
+  const hasData = months.length > 0;
+  const activeKey = selectedKey && months.some((m) => m.key === selectedKey) ? selectedKey : months[months.length - 1]?.key;
+  const active = months.find((m) => m.key === activeKey);
+
+  const chartRows = months.map((h) => ({
+    mes: MONTH_NAMES[h.month - 1].slice(0, 3) + (h.open ? '*' : ''),
+    Renda: h.totalIncome,
+    Despesas: h.totalExpenses,
+    Saldo: h.balance,
+  }));
+
+  const maxCategoria = active ? Math.max(1, ...(active.categorias || []).map((c) => c.value)) : 1;
+
+  return (
+    <>
+      <div className="fw-pagehead">
+        <div>
+          <div className="fw-eyebrow">Ano em números</div>
+          <h1>Histórico do Ano</h1>
+        </div>
+      </div>
+
+      <div className="fw-section">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <button className={`fw-btn ${view === 'mes' ? '' : 'ghost'}`} onClick={() => setView('mes')}>
+            Ver por mês
+          </button>
+          <button className={`fw-btn ${view === 'ano' ? '' : 'ghost'}`} onClick={() => setView('ano')}>
+            Ver o ano todo
+          </button>
+        </div>
+
+        {!hasData ? (
+          <div style={{ color: 'var(--ink-soft)', fontSize: 13.5 }}>
+            Nenhum mês fechado ainda este ano. Feche o mês atual no Painel pra começar a ver o histórico aqui.
+          </div>
+        ) : view === 'mes' ? (
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {months.map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setSelectedKey(m.key)}
+                  className="fw-seg-pill"
+                  style={{
+                    padding: '7px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                    border: `1px solid ${m.key === activeKey ? 'var(--emerald)' : 'var(--line)'}`,
+                    background: m.key === activeKey ? 'var(--emerald-tint)' : 'var(--paper-card)',
+                    color: m.key === activeKey ? 'var(--emerald-dark)' : 'var(--ink-soft)',
+                    fontWeight: m.key === activeKey ? 600 : 400,
+                  }}
+                >
+                  {MONTH_NAMES[m.month - 1].slice(0, 3)}
+                  {m.open ? ' *' : ''}
+                </button>
+              ))}
+            </div>
+
+            {active && (
+              <>
+                <div className="fw-cards" style={{ marginBottom: 20 }}>
+                  <div className="fw-card">
+                    <div className="fw-card-label">Renda</div>
+                    <div className="fw-card-value" style={{ color: 'var(--emerald-dark)' }}>{fmtBRL(active.totalIncome)}</div>
+                  </div>
+                  <div className="fw-card">
+                    <div className="fw-card-label">Despesas</div>
+                    <div className="fw-card-value" style={{ color: 'var(--brick)' }}>{fmtBRL(active.totalExpenses)}</div>
+                  </div>
+                  <div className="fw-card">
+                    <div className="fw-card-label">Saldo</div>
+                    <div className={`fw-card-value ${active.balance >= 0 ? 'pos' : 'neg'}`}>{fmtBRL(active.balance)}</div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 14 }}>
+                  {MONTH_NAMES[active.month - 1]} de {active.year}
+                  {active.open ? ' — mês em aberto, números de agora' : ' — mês fechado'}
+                </div>
+
+                <div style={{ background: 'var(--paper-card)', border: '1px solid var(--line)', borderRadius: 8, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 12 }}>Despesas por categoria</div>
+                  {(active.categorias || []).length === 0 ? (
+                    <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Nenhuma despesa registrada nesse mês.</div>
+                  ) : (
+                    active.categorias.map((c, i) => (
+                      <div key={i} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 3 }}>
+                          <span style={{ color: 'var(--ink-soft)' }}>{c.name}</span>
+                          <span className="fw-num">{fmtBRL(c.value)}</span>
+                        </div>
+                        <div style={{ height: 6, background: 'var(--paper)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(c.value / maxCategoria) * 100}%`, background: 'var(--emerald)' }} />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ width: '100%', height: 360 }}>
+              <ResponsiveContainer>
+                <ComposedChart data={chartRows} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                  <XAxis dataKey="mes" stroke="var(--ink-soft)" fontSize={12.5} />
+                  <YAxis stroke="var(--ink-soft)" fontSize={12} tickFormatter={(v) => fmtBRLShort(v)} />
+                  <Tooltip formatter={(v) => fmtBRL(v)} />
+                  <Legend />
+                  <Bar dataKey="Renda" fill="var(--emerald)" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="Despesas" fill="var(--brick)" radius={[3, 3, 0, 0]} />
+                  <Line type="monotone" dataKey="Saldo" stroke="var(--gold)" strokeWidth={2.5} dot={{ r: 4 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 8 }}>* mês em aberto (números de agora)</div>
+          </>
+        )}
       </div>
     </>
   );
