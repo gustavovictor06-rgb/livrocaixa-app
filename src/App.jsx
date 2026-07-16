@@ -124,47 +124,115 @@ const TOUR_STEPS = [
   {
     icon: LayoutDashboard,
     title: 'Bem-vindo ao LivroCaixa',
-    text: 'Esse é o seu planejador financeiro pessoal. Vamos passar rapidinho pelas partes principais, pra você já sair sabendo lançar suas coisas.',
+    text: 'Esse é o seu planejador financeiro pessoal. Esse tour é bem detalhado — vamos passar por cada tela, cada botão e o que ele faz. Pode ir com calma, dá pra voltar quando quiser.',
+  },
+  // ---- Painel ----
+  {
+    icon: LayoutDashboard,
+    title: 'Painel — mês atual',
+    text: 'Logo no topo do Painel fica o card "Mês atual", mostrando o mês e ano que você está lançando agora. Do lado direito dele tem o botão "Fechar mês" — clicando nele, o app pede confirmação, guarda uma foto congelada dos números desse mês no Histórico, avança 1 parcela em cada compra parcelada em aberto, e abre o mês seguinte pra você lançar.',
   },
   {
     icon: LayoutDashboard,
-    title: 'Painel',
-    text: 'É a visão geral: mostra o mês atual, um aviso colorido dizendo se você está gastando demais, no limite ou com folga, e um resumo de renda, despesas e metas.',
+    title: 'Painel — aviso colorido',
+    text: 'Logo abaixo aparece uma faixa colorida com uma leitura da sua situação: vermelha se você está gastando mais do que ganha, amarela se as contas fecham mas sobra pouco, e verde se sobrou uma boa margem — nesse caso ela já sugere olhar a aba Prosperar.',
+  },
+  {
+    icon: LayoutDashboard,
+    title: 'Painel — cards de números',
+    text: 'Em seguida, 4 cartões: "Saldo livre" (o que sobra depois de contas, reserva, viagem e investimento), "Reserva de emergência" e "Viagem dos sonhos" (quanto já tem guardado de cada meta) e "Projeção em 3 anos" (quanto seu investimento pode virar).',
+  },
+  {
+    icon: LayoutDashboard,
+    title: 'Painel — resumo e progresso',
+    text: 'Mais embaixo, "De onde vem, para onde vai" mostra renda total menos despesas, e "Progresso das metas" mostra o percentual já alcançado da reserva de emergência e da viagem, cada um com uma barrinha.',
+  },
+  // ---- Renda & Despesas ----
+  {
+    icon: Wallet,
+    title: 'Renda & Despesas — fontes de renda',
+    text: 'Nessa aba, o topo mostra uma etiqueta "Editando: [mês] de [ano]" pra deixar claro o que você está lançando. Em "Fontes de renda", clique em "+ Adicionar renda" pra criar uma nova linha (salário, freela, aluguel...), digite o nome e o valor — o total soma tudo automaticamente em "Renda total".',
   },
   {
     icon: Wallet,
-    title: 'Renda & Despesas',
-    text: 'Aqui você lança suas fontes de renda (salário, freelas...) e as despesas fixas e variáveis. Pra compras parceladas, marque "Essa despesa é parcelada", digite o valor total da compra e a quantidade de parcelas — o valor de cada parcela é calculado sozinho.',
+    title: 'Renda & Despesas — despesas simples',
+    text: 'Em "Despesas fixas e variáveis", cada linha tem um nome e um valor editável. O ícone de lixeira remove a despesa. Se não marcar "Essa despesa é parcelada", ela é tratada como um gasto fixo mensal normal.',
+  },
+  {
+    icon: Wallet,
+    title: 'Renda & Despesas — compra parcelada',
+    text: 'Ao marcar "Essa despesa é parcelada", abre uma caixa: digite o "Valor total da compra" e o "Total de parcelas" — o "Valor de cada parcela" é calculado sozinho (nunca o contrário). "Parcelas já pagas" mostra quantas você já quitou, com uma barra de progresso.',
+  },
+  {
+    icon: Wallet,
+    title: 'Renda & Despesas — entrada (opcional)',
+    text: 'Se marcar "Dei entrada nessa compra", aparece um campo pra digitar o valor da entrada — o cálculo da parcela passa a considerar (valor total − entrada) ÷ número de parcelas. Se não marcar, funciona igual antes, sem entrada nenhuma.',
+  },
+  // ---- Reserva de Emergência ----
+  {
+    icon: ShieldCheck,
+    title: 'Reserva de Emergência — a meta',
+    text: 'Escolha entre 3, 6 ou 12 meses de despesas guardadas — a meta em reais é calculada sozinha (multiplicador × suas despesas mensais atuais) e aparece na caixa de aviso logo abaixo.',
   },
   {
     icon: ShieldCheck,
-    title: 'Reserva de Emergência',
-    text: 'Defina uma meta e quanto quer guardar por mês. O app acompanha o progresso e estima quantos meses faltam pra chegar lá.',
+    title: 'Reserva de Emergência — progresso e aporte',
+    text: '"Valor já guardado" e "Aporte mensal planejado" são campos que você edita. A barra de progresso mostra quanto falta e uma estimativa de meses no ritmo atual. O botão "Registrar aporte do mês" soma o valor do aporte ao total guardado e cria um carimbo com a data.',
   },
+  // ---- Viagem ----
   {
     icon: Plane,
     title: 'Viagem dos Sonhos',
-    text: 'Igual à reserva de emergência, mas pra sua próxima viagem: meta, contribuição mensal e progresso.',
+    text: 'Funciona igual à reserva de emergência: você define o valor da meta da viagem, quanto já guardou, o aporte mensal, e usa o mesmo botão de "Registrar aporte" pra ir alimentando essa meta mês a mês.',
+  },
+  // ---- Prosperar ----
+  {
+    icon: Sparkles,
+    title: 'Prosperar — adicionar desejo',
+    text: 'No topo, o campo "Saldo livre este mês" mostra quanto sobra depois de contas, reserva e viagem. Logo abaixo, digite o nome e o preço de algo que você quer (roupa, tênis, sair com amigos...) e clique em "Adicionar" pra colocar na lista.',
   },
   {
     icon: Sparkles,
-    title: 'Prosperar',
-    text: 'Sua lista de desejos (roupa, tênis, sair com os amigos...). Você prioriza a ordem, e o app libera um item de cada vez, conforme sobra dinheiro no mês — sempre depois de reserva e viagem estarem em dia.',
+    title: 'Prosperar — prioridade e liberação',
+    text: 'Cada item tem setinhas ↑↓ pra você reordenar a prioridade — o que está no topo é considerado primeiro. Um item fica marcado "Liberado esse mês ✅" quando o saldo livre já dá conta dele e de tudo que está na frente dele na lista; senão, mostra uma estimativa de quantos meses faltam.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Prosperar — marcar como comprado',
+    text: 'Quando um item está liberado, aparece um ícone de check ✓ — clicando, ele sai da lista (assumindo que você comprou). O ícone de lixeira remove qualquer item da lista, liberado ou não.',
+  },
+  // ---- Investimento ----
+  {
+    icon: TrendingUp,
+    title: 'Plano de Investimento — quanto investir',
+    text: 'Você escolhe entre "Usar sugestão" (calculada automaticamente a partir do que sobra depois da reserva e da viagem) ou "Definir manualmente", digitando um valor fixo de aporte mensal.',
   },
   {
     icon: TrendingUp,
-    title: 'Plano de Investimento',
-    text: 'Simule quanto investir por mês, como distribuir entre renda fixa, FIIs e ações, e veja a projeção de quanto isso pode virar em alguns anos.',
+    title: 'Plano de Investimento — alocação e projeção',
+    text: 'Em "Alocação", três barrinhas deslizantes dividem o investimento entre Renda Fixa, FIIs e Ações (o total precisa somar 100%), cada uma com uma rentabilidade anual esperada editável. Mais abaixo, um gráfico mostra a projeção de quanto isso pode virar em 1, 2 e 3 anos.',
+  },
+  // ---- Histórico ----
+  {
+    icon: History,
+    title: 'Histórico do Ano — ver por mês',
+    text: 'Aqui aparecem pílulas com os meses já fechados e o atual (marcado com *). Clicando em um mês, você vê renda, despesas, saldo, e um detalhamento de "Despesas por categoria" daquele mês específico.',
   },
   {
     icon: History,
-    title: 'Histórico do Ano',
-    text: 'No Painel, quando terminar de lançar tudo, clique em "Fechar mês" — isso guarda uma foto daquele mês aqui no histórico e avança as parcelas em aberto. Aqui você pode ver mês a mês ou o ano todo num gráfico.',
+    title: 'Histórico do Ano — ver o ano todo',
+    text: 'No botão "Ver o ano todo", aparece um gráfico com barras verdes (renda) e vermelhas (despesas) de cada mês, com uma linha dourada mostrando o saldo — dá pra comparar visualmente como cada mês foi.',
   },
+  {
+    icon: History,
+    title: 'Histórico do Ano — reabrir o mês mais recente',
+    text: 'Se fechou um mês e percebeu um erro, ao visualizar esse mês (só funciona pro mais recente) aparece o botão "Reabrir este mês" — ele desfaz o fechamento, restaura os dados exatamente como estavam e já te leva pra aba Renda & Despesas pra corrigir.',
+  },
+  // ---- Tema / ajuda ----
   {
     icon: Sun,
     title: 'Tema e ajuda',
-    text: 'O botão no canto superior direito troca entre tema claro e escuro. E esse tour você pode reabrir a qualquer momento clicando no "?" ao lado dele. Bom uso!',
+    text: 'O botão no canto superior direito troca entre tema claro e escuro. O botão "?" ao lado dele reabre esse tour a qualquer momento, do início. Agora é só começar a lançar suas coisas!',
   },
 ];
 
@@ -936,16 +1004,16 @@ function TourGuide({ onFinish }) {
         <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{current.title}</div>
         <div style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.55, marginBottom: 22 }}>{current.text}</div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
-          {TOUR_STEPS.map((_, i) => (
-            <div
-              key={i}
-              style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: i === step ? 'var(--emerald)' : 'var(--line)',
-              }}
-            />
-          ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--ink-soft)', marginBottom: 6 }}>
+          <span>Passo {step + 1} de {total}</span>
+        </div>
+        <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden', marginBottom: 20 }}>
+          <div
+            style={{
+              height: '100%', background: 'var(--emerald)',
+              width: `${((step + 1) / total) * 100}%`, transition: 'width .2s',
+            }}
+          />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
