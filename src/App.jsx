@@ -124,115 +124,147 @@ const TOUR_STEPS = [
   {
     icon: LayoutDashboard,
     title: 'Bem-vindo ao LivroCaixa',
-    text: 'Esse é o seu planejador financeiro pessoal. Esse tour é bem detalhado — vamos passar por cada tela, cada botão e o que ele faz. Pode ir com calma, dá pra voltar quando quiser.',
+    text: 'Esse é o seu planejador financeiro pessoal. Esse tour vai te levar até cada parte da tela de verdade, trocando de aba sozinho — fica de olho no destaque.',
   },
   // ---- Painel ----
   {
+    tab: 'painel',
+    target: '[data-tour="painel-mes"]',
     icon: LayoutDashboard,
-    title: 'Painel — mês atual',
-    text: 'Logo no topo do Painel fica o card "Mês atual", mostrando o mês e ano que você está lançando agora. Do lado direito dele tem o botão "Fechar mês" — clicando nele, o app pede confirmação, guarda uma foto congelada dos números desse mês no Histórico, avança 1 parcela em cada compra parcelada em aberto, e abre o mês seguinte pra você lançar.',
+    title: 'Mês atual',
+    text: 'Mostra o mês e ano que você está lançando agora. O botão "Fechar mês" guarda uma foto congelada dos números desse mês no Histórico, avança 1 parcela em cada compra parcelada em aberto, e abre o mês seguinte.',
   },
   {
+    tab: 'painel',
+    target: '[data-tour="painel-aviso"]',
     icon: LayoutDashboard,
-    title: 'Painel — aviso colorido',
-    text: 'Logo abaixo aparece uma faixa colorida com uma leitura da sua situação: vermelha se você está gastando mais do que ganha, amarela se as contas fecham mas sobra pouco, e verde se sobrou uma boa margem — nesse caso ela já sugere olhar a aba Prosperar.',
+    title: 'Aviso colorido',
+    text: 'Uma leitura da sua situação: vermelha se você está gastando mais do que ganha, amarela se as contas fecham mas sobra pouco, e verde se sobrou uma boa margem — nesse caso ela já sugere olhar a aba Prosperar.',
   },
   {
+    tab: 'painel',
+    target: '[data-tour="painel-cards"]',
     icon: LayoutDashboard,
-    title: 'Painel — cards de números',
-    text: 'Em seguida, 4 cartões: "Saldo livre" (o que sobra depois de contas, reserva, viagem e investimento), "Reserva de emergência" e "Viagem dos sonhos" (quanto já tem guardado de cada meta) e "Projeção em 3 anos" (quanto seu investimento pode virar).',
+    title: 'Cards de números',
+    text: '"Saldo livre" (o que sobra depois de contas, reserva, viagem e investimento), "Reserva de emergência" e "Viagem dos sonhos" (quanto já tem guardado) e "Projeção em 3 anos" do investimento.',
   },
   {
+    tab: 'painel',
+    target: '[data-tour="painel-resumo"]',
     icon: LayoutDashboard,
-    title: 'Painel — resumo e progresso',
-    text: 'Mais embaixo, "De onde vem, para onde vai" mostra renda total menos despesas, e "Progresso das metas" mostra o percentual já alcançado da reserva de emergência e da viagem, cada um com uma barrinha.',
+    title: 'Resumo e progresso',
+    text: '"De onde vem, para onde vai" mostra renda menos despesas, e "Progresso das metas" mostra o percentual já alcançado da reserva de emergência e da viagem.',
   },
   // ---- Renda & Despesas ----
   {
+    tab: 'renda',
+    target: '[data-tour="renda-add"]',
     icon: Wallet,
-    title: 'Renda & Despesas — fontes de renda',
-    text: 'Nessa aba, o topo mostra uma etiqueta "Editando: [mês] de [ano]" pra deixar claro o que você está lançando. Em "Fontes de renda", clique em "+ Adicionar renda" pra criar uma nova linha (salário, freela, aluguel...), digite o nome e o valor — o total soma tudo automaticamente em "Renda total".',
+    title: 'Fontes de renda',
+    text: 'Clique em "+ Adicionar renda" pra criar uma nova linha (salário, freela, aluguel...). O total soma tudo automaticamente em "Renda total".',
   },
   {
+    tab: 'renda',
+    target: '[data-tour="despesas-add"]',
     icon: Wallet,
-    title: 'Renda & Despesas — despesas simples',
-    text: 'Em "Despesas fixas e variáveis", cada linha tem um nome e um valor editável. O ícone de lixeira remove a despesa. Se não marcar "Essa despesa é parcelada", ela é tratada como um gasto fixo mensal normal.',
+    title: 'Despesas fixas e variáveis',
+    text: 'Clique em "+ Adicionar despesa" pra criar uma nova linha. Cada uma tem nome e valor editável, e o ícone de lixeira remove.',
   },
   {
+    tab: 'renda',
+    target: '[data-tour="expense-installment"]',
     icon: Wallet,
-    title: 'Renda & Despesas — compra parcelada',
-    text: 'Ao marcar "Essa despesa é parcelada", abre uma caixa: digite o "Valor total da compra" e o "Total de parcelas" — o "Valor de cada parcela" é calculado sozinho (nunca o contrário). "Parcelas já pagas" mostra quantas você já quitou, com uma barra de progresso.',
+    title: 'Compra parcelada',
+    text: 'Ao marcar essa caixinha, abre um bloco pra digitar o "Valor total da compra" e o "Total de parcelas" — o valor de cada parcela é calculado sozinho, nunca o contrário.',
   },
   {
+    tab: 'renda',
+    target: '[data-tour="expense-installment-box"]',
     icon: Wallet,
-    title: 'Renda & Despesas — entrada (opcional)',
-    text: 'Se marcar "Dei entrada nessa compra", aparece um campo pra digitar o valor da entrada — o cálculo da parcela passa a considerar (valor total − entrada) ÷ número de parcelas. Se não marcar, funciona igual antes, sem entrada nenhuma.',
+    title: 'Entrada (opcional)',
+    text: 'Dentro do bloco de parcelamento, marque "Dei entrada nessa compra" pra digitar o valor da entrada — o cálculo passa a ser (valor total − entrada) ÷ parcelas. Sem marcar, funciona igual antes, sem entrada nenhuma.',
   },
   // ---- Reserva de Emergência ----
   {
+    tab: 'emergencia',
+    target: '[data-tour="emergencia-meta"]',
     icon: ShieldCheck,
-    title: 'Reserva de Emergência — a meta',
-    text: 'Escolha entre 3, 6 ou 12 meses de despesas guardadas — a meta em reais é calculada sozinha (multiplicador × suas despesas mensais atuais) e aparece na caixa de aviso logo abaixo.',
+    title: 'Meta da reserva',
+    text: 'Escolha entre 3, 6 ou 12 meses de despesas guardadas — a meta em reais é calculada sozinha (multiplicador × suas despesas mensais atuais).',
   },
   {
+    tab: 'emergencia',
+    target: '[data-tour="emergencia-aporte"]',
     icon: ShieldCheck,
-    title: 'Reserva de Emergência — progresso e aporte',
-    text: '"Valor já guardado" e "Aporte mensal planejado" são campos que você edita. A barra de progresso mostra quanto falta e uma estimativa de meses no ritmo atual. O botão "Registrar aporte do mês" soma o valor do aporte ao total guardado e cria um carimbo com a data.',
+    title: 'Registrar aporte',
+    text: 'Depois de definir o aporte mensal planejado, clique aqui todo mês pra somar esse valor ao total guardado — cria um carimbo com a data.',
   },
   // ---- Viagem ----
   {
+    tab: 'viagem',
+    target: '[data-tour="viagem-aporte"]',
     icon: Plane,
     title: 'Viagem dos Sonhos',
-    text: 'Funciona igual à reserva de emergência: você define o valor da meta da viagem, quanto já guardou, o aporte mensal, e usa o mesmo botão de "Registrar aporte" pra ir alimentando essa meta mês a mês.',
+    text: 'Funciona igual à reserva de emergência: meta, valor já guardado, aporte mensal, e esse mesmo botão pra ir alimentando a meta mês a mês.',
   },
   // ---- Prosperar ----
   {
+    tab: 'prosperar',
+    target: '[data-tour="prosperar-form"]',
     icon: Sparkles,
-    title: 'Prosperar — adicionar desejo',
-    text: 'No topo, o campo "Saldo livre este mês" mostra quanto sobra depois de contas, reserva e viagem. Logo abaixo, digite o nome e o preço de algo que você quer (roupa, tênis, sair com amigos...) e clique em "Adicionar" pra colocar na lista.',
+    title: 'Adicionar um desejo',
+    text: 'Digite o nome e o preço de algo que você quer (roupa, tênis, sair com amigos...) e clique em "Adicionar" pra colocar na lista.',
   },
   {
+    tab: 'prosperar',
+    target: '[data-tour="prosperar-lista"]',
     icon: Sparkles,
-    title: 'Prosperar — prioridade e liberação',
-    text: 'Cada item tem setinhas ↑↓ pra você reordenar a prioridade — o que está no topo é considerado primeiro. Um item fica marcado "Liberado esse mês ✅" quando o saldo livre já dá conta dele e de tudo que está na frente dele na lista; senão, mostra uma estimativa de quantos meses faltam.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Prosperar — marcar como comprado',
-    text: 'Quando um item está liberado, aparece um ícone de check ✓ — clicando, ele sai da lista (assumindo que você comprou). O ícone de lixeira remove qualquer item da lista, liberado ou não.',
+    title: 'Prioridade e liberação',
+    text: 'As setinhas ↑↓ reordenam a prioridade — o que está no topo é considerado primeiro. Um item fica "Liberado esse mês" quando o saldo livre já dá conta dele e de tudo à frente na lista. Quando liberado, aparece um ✓ pra marcar como comprado.',
   },
   // ---- Investimento ----
   {
+    tab: 'investimento',
+    target: '[data-tour="invest-modo"]',
     icon: TrendingUp,
-    title: 'Plano de Investimento — quanto investir',
-    text: 'Você escolhe entre "Usar sugestão" (calculada automaticamente a partir do que sobra depois da reserva e da viagem) ou "Definir manualmente", digitando um valor fixo de aporte mensal.',
+    title: 'Quanto investir',
+    text: '"Usar sugestão" calcula automaticamente com base no que sobra depois da reserva e da viagem. "Definir manualmente" deixa você digitar um valor fixo.',
   },
   {
+    tab: 'investimento',
+    target: '[data-tour="invest-alocacao"]',
     icon: TrendingUp,
-    title: 'Plano de Investimento — alocação e projeção',
-    text: 'Em "Alocação", três barrinhas deslizantes dividem o investimento entre Renda Fixa, FIIs e Ações (o total precisa somar 100%), cada uma com uma rentabilidade anual esperada editável. Mais abaixo, um gráfico mostra a projeção de quanto isso pode virar em 1, 2 e 3 anos.',
+    title: 'Alocação e projeção',
+    text: 'Três barrinhas dividem o investimento entre Renda Fixa, FIIs e Ações (precisa somar 100%), cada uma com rentabilidade anual editável. Mais abaixo, o gráfico projeta 1, 2 e 3 anos.',
   },
   // ---- Histórico ----
   {
+    tab: 'historico',
+    target: '[data-tour="historico-pills"]',
     icon: History,
-    title: 'Histórico do Ano — ver por mês',
-    text: 'Aqui aparecem pílulas com os meses já fechados e o atual (marcado com *). Clicando em um mês, você vê renda, despesas, saldo, e um detalhamento de "Despesas por categoria" daquele mês específico.',
+    title: 'Ver por mês',
+    text: 'Pílulas com os meses já fechados e o atual (marcado com *). Clique em um mês pra ver renda, despesas, saldo e o detalhamento de despesas por categoria daquele mês.',
   },
   {
+    tab: 'historico',
+    target: '[data-tour="historico-toggle"]',
     icon: History,
-    title: 'Histórico do Ano — ver o ano todo',
-    text: 'No botão "Ver o ano todo", aparece um gráfico com barras verdes (renda) e vermelhas (despesas) de cada mês, com uma linha dourada mostrando o saldo — dá pra comparar visualmente como cada mês foi.',
+    title: 'Ver o ano todo',
+    text: 'Clique em "Ver o ano todo" pra trocar pro gráfico: barras verdes (renda) e vermelhas (despesas) por mês, com uma linha dourada do saldo.',
   },
   {
+    tab: 'historico',
+    target: '[data-tour="historico-pills"]',
     icon: History,
-    title: 'Histórico do Ano — reabrir o mês mais recente',
-    text: 'Se fechou um mês e percebeu um erro, ao visualizar esse mês (só funciona pro mais recente) aparece o botão "Reabrir este mês" — ele desfaz o fechamento, restaura os dados exatamente como estavam e já te leva pra aba Renda & Despesas pra corrigir.',
+    title: 'Reabrir o mês mais recente',
+    text: 'Se fechou um mês e percebeu um erro, ao visualizar o mês mais recente fechado aparece o botão "Reabrir este mês" — desfaz o fechamento e já te leva pra Renda & Despesas pra corrigir.',
   },
   // ---- Tema / ajuda ----
   {
+    target: '[data-tour="theme-btn"]',
     icon: Sun,
     title: 'Tema e ajuda',
-    text: 'O botão no canto superior direito troca entre tema claro e escuro. O botão "?" ao lado dele reabre esse tour a qualquer momento, do início. Agora é só começar a lançar suas coisas!',
+    text: 'Esse botão troca entre tema claro e escuro. O "?" ao lado reabre esse tour a qualquer momento, do início. Agora é só começar a lançar suas coisas!',
   },
 ];
 
@@ -505,6 +537,7 @@ function AppShell({ user }) {
   return (
     <div className={`fw-root${state.theme === 'dark' ? ' dark' : ''}`}>
       <button
+        data-tour="help-btn"
         onClick={() => setShowTour(true)}
         title="Ver o tour guiado"
         style={{
@@ -518,6 +551,7 @@ function AppShell({ user }) {
         ?
       </button>
       <button
+        data-tour="theme-btn"
         onClick={() => setState((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }))}
         title={state.theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
         style={{
@@ -529,7 +563,7 @@ function AppShell({ user }) {
       >
         {state.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
       </button>
-      {showTour && <TourGuide onFinish={finishTour} />}
+      {showTour && <TourGuide onFinish={finishTour} tab={tab} setTab={setTab} />}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -798,6 +832,7 @@ function AppShell({ user }) {
           return (
             <div
               key={n.id}
+              data-tour={`nav-${n.id}`}
               className={`fw-navitem ${tab === n.id ? 'active' : ''}`}
               onClick={() => setTab(n.id)}
             >
@@ -968,74 +1003,151 @@ function ProgressBar({ value, gold }) {
   );
 }
 
-function TourGuide({ onFinish }) {
+function TourGuide({ onFinish, tab, setTab }) {
   const [step, setStep] = useState(0);
+  const [rect, setRect] = useState(null);
+  const [direction, setDirection] = useState(1);
   const total = TOUR_STEPS.length;
   const current = TOUR_STEPS[step];
   const Icon = current.icon;
   const isLast = step === total - 1;
 
+  // Se o passo pertence a outra aba, troca de aba sozinho.
+  useEffect(() => {
+    if (current.tab && current.tab !== tab) setTab(current.tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  // Localiza o elemento real na tela e calcula a posição do destaque.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const el = current.target ? document.querySelector(current.target) : null;
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        const r = el.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      } else {
+        setRect(null);
+      }
+    }, 260);
+    return () => clearTimeout(t);
+  }, [step, tab]);
+
+  const goNext = () => {
+    if (isLast) return onFinish();
+    setDirection(1);
+    setStep((s) => s + 1);
+  };
+  const goBack = () => {
+    setDirection(-1);
+    setStep((s) => s - 1);
+  };
+
+  // Decide onde colocar o balão em relação ao alvo: abaixo se couber, senão acima.
+  let tooltipStyle = { position: 'fixed', zIndex: 101, width: 320 };
+  let arrowStyle = null;
+  if (rect) {
+    const spaceBelow = window.innerHeight - (rect.top + rect.height);
+    const placeBelow = spaceBelow > 200;
+    const left = Math.min(Math.max(16, rect.left), window.innerWidth - 336);
+    tooltipStyle.left = left;
+    if (placeBelow) {
+      tooltipStyle.top = rect.top + rect.height + 16;
+    } else {
+      tooltipStyle.top = 'auto';
+      tooltipStyle.bottom = window.innerHeight - rect.top + 16;
+    }
+    arrowStyle = {
+      position: 'fixed', zIndex: 101, left: Math.min(Math.max(left + 20, rect.left + 12), window.innerWidth - 30),
+      width: 14, height: 14, background: 'var(--paper-card)',
+      border: '1px solid var(--line)', transform: 'rotate(45deg)',
+      ...(placeBelow
+        ? { top: rect.top + rect.height + 10, borderBottom: 'none', borderRight: 'none' }
+        : { top: rect.top - 17, borderTop: 'none', borderLeft: 'none' }),
+    };
+  } else {
+    tooltipStyle.top = '50%';
+    tooltipStyle.left = '50%';
+    tooltipStyle.transform = 'translate(-50%,-50%)';
+  }
+
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-      }}
-      onClick={onFinish}
-    >
+    <>
+      <style>{`
+        @keyframes tourFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes tourPop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
+        @keyframes tourSlideR { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes tourSlideL { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+        .tour-spotlight { transition: top .3s ease, left .3s ease, width .3s ease, height .3s ease; }
+        .tour-tooltip { animation: tourFade .2s ease; }
+        .tour-content { animation: ${direction === 1 ? 'tourSlideR' : 'tourSlideL'} .25s ease; }
+        .tour-icon { animation: tourPop .3s cubic-bezier(.34,1.56,.64,1); }
+      `}</style>
+
+      {rect ? (
+        <div
+          className="tour-spotlight"
+          style={{
+            position: 'fixed', zIndex: 99, pointerEvents: 'none',
+            top: rect.top - 6, left: rect.left - 6,
+            width: rect.width + 12, height: rect.height + 12,
+            borderRadius: 8, border: '2px solid var(--emerald)',
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)',
+          }}
+        />
+      ) : (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'rgba(0,0,0,0.6)', animation: 'tourFade .2s ease' }} />
+      )}
+
+      {arrowStyle && <div style={arrowStyle} />}
+
       <div
-        onClick={(e) => e.stopPropagation()}
+        className="tour-tooltip"
         style={{
+          ...tooltipStyle,
           background: 'var(--paper-card)', color: 'var(--ink)', borderRadius: 12,
-          maxWidth: 420, width: '100%', padding: '28px 26px', border: '1px solid var(--line)',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+          padding: '20px 20px', border: '1px solid var(--line)',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
         }}
       >
-        <div
-          style={{
-            width: 44, height: 44, borderRadius: '50%', background: 'var(--emerald-tint)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, color: 'var(--emerald-dark)',
-          }}
-        >
-          <Icon size={20} />
+        <div key={step} className="tour-content">
+          <div
+            className="tour-icon"
+            style={{
+              width: 38, height: 38, borderRadius: '50%', background: 'var(--emerald-tint)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, color: 'var(--emerald-dark)',
+            }}
+          >
+            <Icon size={18} />
+          </div>
+          <div style={{ fontSize: 15.5, fontWeight: 600, marginBottom: 6 }}>{current.title}</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: 16 }}>{current.text}</div>
         </div>
 
-        <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{current.title}</div>
-        <div style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.55, marginBottom: 22 }}>{current.text}</div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--ink-soft)', marginBottom: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-soft)', marginBottom: 5 }}>
           <span>Passo {step + 1} de {total}</span>
         </div>
-        <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden', marginBottom: 20 }}>
-          <div
-            style={{
-              height: '100%', background: 'var(--emerald)',
-              width: `${((step + 1) / total) * 100}%`, transition: 'width .2s',
-            }}
-          />
+        <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ height: '100%', background: 'var(--emerald)', width: `${((step + 1) / total) * 100}%`, transition: 'width .3s ease' }} />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
-            onClick={onFinish}
-            style={{ background: 'none', border: 'none', color: 'var(--ink-soft)', fontSize: 13, cursor: 'pointer' }}
-          >
+          <button onClick={onFinish} style={{ background: 'none', border: 'none', color: 'var(--ink-soft)', fontSize: 12.5, cursor: 'pointer' }}>
             Pular
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             {step > 0 && (
-              <button className="fw-btn ghost" onClick={() => setStep((s) => s - 1)}>
+              <button className="fw-btn ghost" onClick={goBack}>
                 Voltar
               </button>
             )}
-            <button className="fw-btn" onClick={() => (isLast ? onFinish() : setStep((s) => s + 1))}>
-              {isLast ? 'Começar a usar' : 'Próximo'}
+            <button className="fw-btn" onClick={goNext}>
+              {isLast ? 'Concluir' : 'Próximo'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1081,6 +1193,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
       </div>
 
       <div
+        data-tour="painel-mes"
         className="fw-card"
         style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -1119,6 +1232,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
       </div>
 
       <div
+        data-tour="painel-aviso"
         className="fw-card"
         style={{
           borderLeft: `4px solid var(--${status.level === 'neg' ? 'brick' : status.level === 'neutral' ? 'gold' : 'emerald'})`,
@@ -1135,7 +1249,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
         <div style={{ fontSize: 13.5, color: 'var(--ink)', marginTop: 6, lineHeight: 1.5 }}>{status.text}</div>
       </div>
 
-      <div className="fw-cards">
+      <div className="fw-cards" data-tour="painel-cards">
         <div className="fw-card">
           <div className="fw-card-label">Saldo livre</div>
           <div className={`fw-card-value ${balance >= 0 ? 'pos' : 'neg'}`}>{fmtBRL(balance)}</div>
@@ -1161,7 +1275,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
         </div>
       </div>
 
-      <div className="fw-grid2">
+      <div className="fw-grid2" data-tour="painel-resumo">
         <div className="fw-section">
           <h2>De onde vem, para onde vai</h2>
           <div className="fw-sub">Como sua renda mensal é distribuída</div>
@@ -1270,7 +1384,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
   );
 }
 
-function ExpenseRow({ e, updateExpense, updateInstallmentCalc, removeExpense, markInstallmentPaid }) {
+function ExpenseRow({ e, tourTarget, updateExpense, updateInstallmentCalc, removeExpense, markInstallmentPaid }) {
   const quitado = isQuitado(e);
   const remaining = remainingInstallments(e);
 
@@ -1298,7 +1412,10 @@ function ExpenseRow({ e, updateExpense, updateInstallmentCalc, removeExpense, ma
         </div>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 6, cursor: 'pointer' }}>
+      <label
+        data-tour={tourTarget ? 'expense-installment' : undefined}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 6, cursor: 'pointer' }}
+      >
         <input
           type="checkbox"
           checked={!!e.installment}
@@ -1318,7 +1435,7 @@ function ExpenseRow({ e, updateExpense, updateInstallmentCalc, removeExpense, ma
       </label>
 
       {e.installment && (
-        <div style={{ marginTop: 10, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 4, padding: '12px 14px' }}>
+        <div data-tour={tourTarget ? 'expense-installment-box' : undefined} style={{ marginTop: 10, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 4, padding: '12px 14px' }}>
           <div className="fw-grid3">
             <div className="fw-field" style={{ marginBottom: 0 }}>
               <label>Valor total da compra</label>
@@ -1466,7 +1583,7 @@ function RendaTab({
           </div>
         ))}
 
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16 }} data-tour="renda-add">
           <button className="fw-btn ghost" onClick={addIncome}>
             <Plus size={14} /> Adicionar renda
           </button>
@@ -1485,10 +1602,11 @@ function RendaTab({
           caixinha e acompanhe quantas parcelas ainda faltam.
         </div>
 
-        {expenses.map((e) => (
+        {expenses.map((e, idx) => (
           <ExpenseRow
             key={e.id}
             e={e}
+            tourTarget={idx === 0}
             updateExpense={updateExpense}
             updateInstallmentCalc={updateInstallmentCalc}
             removeExpense={removeExpense}
@@ -1496,7 +1614,7 @@ function RendaTab({
           />
         ))}
 
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16 }} data-tour="despesas-add">
           <button className="fw-btn ghost" onClick={addExpense}>
             <Plus size={14} /> Adicionar despesa
           </button>
@@ -1568,7 +1686,7 @@ function EmergenciaTab({ emergency, setEmergency, totalExpenses, target, remaini
         <div className="fw-sub">
           Para o perfil moderado, o mais comum é guardar 6 meses de despesas. Ajuste conforme sua realidade.
         </div>
-        <div className="fw-seg">
+        <div className="fw-seg" data-tour="emergencia-meta">
           {[3, 6, 12].map((m) => (
             <button
               key={m}
@@ -1619,7 +1737,7 @@ function EmergenciaTab({ emergency, setEmergency, totalExpenses, target, remaini
           </span>
         </div>
 
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 18 }} data-tour="emergencia-aporte">
           <button className="fw-btn" onClick={onAporte} disabled={!emergency.monthlyContribution}>
             <Plus size={14} /> Registrar aporte do mês ({fmtBRL(emergency.monthlyContribution)})
           </button>
@@ -1728,7 +1846,7 @@ function ViagemTab({ travel, setTravel, remaining, months, onAporte }) {
           </div>
         )}
 
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 18 }} data-tour="viagem-aporte">
           <button className="fw-btn" onClick={onAporte} disabled={!travel.monthlyContribution}>
             <Plus size={14} /> Registrar aporte do mês ({fmtBRL(travel.monthlyContribution)})
           </button>
@@ -1783,7 +1901,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
           </span>
         </div>
 
-        <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+        <form onSubmit={handleAdd} data-tour="prosperar-form" style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
           <input
             style={{ flex: 2, minWidth: 160, padding: '9px 11px', border: '1px solid var(--line, #DED7C4)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit' }}
             placeholder="O que você quer comprar?"
@@ -1805,7 +1923,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
         </form>
       </div>
 
-      <div className="fw-card" style={{ marginTop: 20 }}>
+      <div className="fw-card" data-tour="prosperar-lista" style={{ marginTop: 20 }}>
         <div className="fw-card-label">
           Sua lista ({unlockedCount} de {wishlist.length} liberado{unlockedCount === 1 ? '' : 's'})
         </div>
@@ -1911,7 +2029,7 @@ function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMon
         <div className="fw-sub">
           Sugestão automática com base no que sobra depois da reserva de emergência e da viagem: {fmtBRL(suggestedInvest)}
         </div>
-        <div className="fw-seg" style={{ maxWidth: 340 }}>
+        <div className="fw-seg" data-tour="invest-modo" style={{ maxWidth: 340 }}>
           <button
             className={investment.useAuto ? 'active' : ''}
             onClick={() => setInvestment((g) => ({ ...g, useAuto: true }))}
@@ -1937,7 +2055,7 @@ function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMon
         )}
       </div>
 
-      <div className="fw-section">
+      <div className="fw-section" data-tour="invest-alocacao">
         <h2>Alocação (perfil moderado)</h2>
         <div className="fw-sub">
           Distribua o percentual entre as classes e ajuste a rentabilidade anual esperada de cada uma. Total: {' '}
@@ -2103,7 +2221,7 @@ function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalEx
       </div>
 
       <div className="fw-section">
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }} data-tour="historico-toggle">
           <button className={`fw-btn ${view === 'mes' ? '' : 'ghost'}`} onClick={() => setView('mes')}>
             Ver por mês
           </button>
@@ -2118,7 +2236,7 @@ function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalEx
           </div>
         ) : view === 'mes' ? (
           <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }} data-tour="historico-pills">
               {months.map((m) => (
                 <button
                   key={m.key}
