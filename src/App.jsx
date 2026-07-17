@@ -7,7 +7,7 @@ import {
 import {
   LayoutDashboard, Wallet, ShieldCheck, Plane, TrendingUp,
   Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check, Sun, Moon,
-  CalendarCheck, History
+  CalendarCheck, History, Target
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase.js';
@@ -44,6 +44,9 @@ const defaultState = {
     targetDate: '',
     entries: [],
   },
+  dreams: [
+    { id: 'dr1', name: 'Carro novo', target: 60000, current: 5000, monthlyContribution: 400 },
+  ],
   investment: {
     monthlyAmount: 0,
     useAuto: true,
@@ -115,7 +118,8 @@ const NAV = [
   { id: 'renda', label: 'Renda & Despesas', icon: Wallet },
   { id: 'emergencia', label: 'Reserva de Emergência', icon: ShieldCheck },
   { id: 'viagem', label: 'Viagem', icon: Plane },
-  { id: 'prosperar', label: 'Prosperar', icon: Sparkles },
+  { id: 'sonhos', label: 'Sonhos', icon: Target },
+  { id: 'desejos', label: 'Desejos', icon: Sparkles },
   { id: 'investimento', label: 'Plano de Investimento', icon: TrendingUp },
   { id: 'historico', label: 'Histórico do Ano', icon: History },
 ];
@@ -139,7 +143,7 @@ const TOUR_STEPS = [
     target: '[data-tour="painel-aviso"]',
     icon: LayoutDashboard,
     title: 'Aviso colorido',
-    text: 'Uma leitura da sua situação: vermelha se você está gastando mais do que ganha, amarela se as contas fecham mas sobra pouco, e verde se sobrou uma boa margem — nesse caso ela já sugere olhar a aba Prosperar.',
+    text: 'Uma leitura da sua situação: vermelha se você está gastando mais do que ganha, amarela se as contas fecham mas sobra pouco, e verde se sobrou uma boa margem — nesse caso ela já sugere olhar a aba Desejos.',
   },
   {
     tab: 'painel',
@@ -207,16 +211,31 @@ const TOUR_STEPS = [
     title: 'Viagem dos Sonhos',
     text: 'Funciona igual à reserva de emergência: meta, valor já guardado, aporte mensal, e esse mesmo botão pra ir alimentando a meta mês a mês.',
   },
+  // ---- Sonhos ----
+  {
+    tab: 'sonhos',
+    target: '[data-tour="sonhos-lista"]',
+    icon: Target,
+    title: 'Sonhos — metas grandes',
+    text: 'Aquelas conquistas que pedem tempo e constância: carro novo, imóvel, moto, casamento... Cada sonho tem sua própria meta, valor guardado e aporte mensal, com o mesmo botão de "Registrar aporte".',
+  },
+  {
+    tab: 'sonhos',
+    target: '[data-tour="sonhos-add"]',
+    icon: Target,
+    title: 'Adicionar um sonho',
+    text: 'Clique aqui pra cadastrar quantos sonhos quiser. O aporte mensal de todos eles soma junto com a reserva de emergência e a viagem no cálculo do saldo livre do Painel.',
+  },
   // ---- Prosperar ----
   {
-    tab: 'prosperar',
+    tab: 'desejos',
     target: '[data-tour="prosperar-form"]',
     icon: Sparkles,
     title: 'Adicionar um desejo',
     text: 'Digite o nome e o preço de algo que você quer (roupa, tênis, sair com amigos...) e clique em "Adicionar" pra colocar na lista.',
   },
   {
-    tab: 'prosperar',
+    tab: 'desejos',
     target: '[data-tour="prosperar-lista"]',
     icon: Sparkles,
     title: 'Prioridade e liberação',
@@ -347,7 +366,8 @@ function AppShell({ user }) {
       ? Math.ceil(travelRemaining / state.travel.monthlyContribution)
       : Infinity;
 
-  const committed = state.emergency.monthlyContribution + state.travel.monthlyContribution;
+  const dreamsMonthly = state.dreams.reduce((sum, d) => sum + (Number(d.monthlyContribution) || 0), 0);
+  const committed = state.emergency.monthlyContribution + state.travel.monthlyContribution + dreamsMonthly;
   const suggestedInvest = Math.max(0, grossBalance - committed);
   const investMonthly = state.investment.useAuto ? suggestedInvest : state.investment.monthlyAmount;
 
@@ -524,6 +544,30 @@ function AppShell({ user }) {
         },
       };
     });
+  };
+
+  const addDream = () => {
+    setState((s) => ({
+      ...s,
+      dreams: [...s.dreams, { id: uid(), name: 'Novo sonho', target: 10000, current: 0, monthlyContribution: 0 }],
+    }));
+  };
+  const updateDream = (id, field, value) => {
+    setState((s) => ({
+      ...s,
+      dreams: s.dreams.map((d) => (d.id === id ? { ...d, [field]: value } : d)),
+    }));
+  };
+  const removeDream = (id) => {
+    setState((s) => ({ ...s, dreams: s.dreams.filter((d) => d.id !== id) }));
+  };
+  const dreamAporte = (id) => {
+    setState((s) => ({
+      ...s,
+      dreams: s.dreams.map((d) =>
+        d.id === id && d.monthlyContribution > 0 ? { ...d, current: d.current + d.monthlyContribution } : d
+      ),
+    }));
   };
 
   if (!loaded) {
@@ -917,7 +961,17 @@ function AppShell({ user }) {
           />
         )}
 
-        {tab === 'prosperar' && (
+        {tab === 'sonhos' && (
+          <SonhosTab
+            dreams={state.dreams}
+            addDream={addDream}
+            updateDream={updateDream}
+            removeDream={removeDream}
+            dreamAporte={dreamAporte}
+          />
+        )}
+
+        {tab === 'desejos' && (
           <ProsperarTab
             wishlist={wishlistComputed}
             balance={balance}
@@ -1190,7 +1244,7 @@ function getFinancialStatus(balance, totalIncome) {
   return {
     level: 'pos',
     title: 'Você está indo bem',
-    text: `Suas metas e contas já estão cobertas, e sobrou ${fmtBRL(balance)} esse mês pra gastar com algo fora da rotina — dá uma olhada na aba Prosperar pra ver o que já pode tirar da lista.`,
+    text: `Suas metas e contas já estão cobertas, e sobrou ${fmtBRL(balance)} esse mês pra gastar com algo fora da rotina — dá uma olhada na aba Desejos pra ver o que já pode tirar da lista.`,
   };
 }
 
@@ -1371,7 +1425,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
 
         {wishlist && wishlist.length > 0 && (
           <div className="fw-card" style={{ marginTop: 20 }}>
-            <div className="fw-card-label">Prosperar — o que dá pra comprar esse mês</div>
+            <div className="fw-card-label">Desejos — o que dá pra comprar esse mês</div>
             {wishlist.filter((w) => w.unlocked).length === 0 && (
               <div style={{ fontSize: 13, color: 'var(--ink-soft, #5B6B63)', marginTop: 8 }}>
                 Nenhum item liberado ainda este mês.
@@ -1390,7 +1444,7 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
               ))}
             </div>
             <div style={{ marginTop: 16 }}>
-              <button className="fw-btn ghost" onClick={() => setTab('prosperar')}>
+              <button className="fw-btn ghost" onClick={() => setTab('desejos')}>
                 Ver lista completa <ChevronRight size={14} />
               </button>
             </div>
@@ -1884,6 +1938,112 @@ function ViagemTab({ travel, setTravel, remaining, months, onAporte }) {
   );
 }
 
+function SonhosTab({ dreams, addDream, updateDream, removeDream, dreamAporte }) {
+  const totalMonthly = dreams.reduce((sum, d) => sum + (Number(d.monthlyContribution) || 0), 0);
+
+  return (
+    <>
+      <div className="fw-pagehead">
+        <div>
+          <div className="fw-eyebrow">Metas de longo prazo</div>
+          <h1>Sonhos</h1>
+        </div>
+      </div>
+
+      <div className="fw-sub" style={{ marginBottom: 20 }}>
+        Aquelas conquistas grandes, que pedem tempo, dedicação e constância: um carro novo, um imóvel, uma moto,
+        o casamento... Cadastre quantos sonhos quiser, cada um com sua própria meta e aporte mensal.
+      </div>
+
+      <div data-tour="sonhos-lista">
+        {dreams.length === 0 && (
+          <div style={{ fontSize: 13.5, color: 'var(--ink-soft)', marginBottom: 16 }}>
+            Nenhum sonho cadastrado ainda.
+          </div>
+        )}
+
+        {dreams.map((d) => {
+        const pct = d.current / (d.target || 1);
+        const remaining = Math.max(0, d.target - d.current);
+        const months = d.monthlyContribution > 0 ? Math.ceil(remaining / d.monthlyContribution) : Infinity;
+        return (
+          <div className="fw-section" key={d.id} style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+              <div className="fw-field" style={{ flex: 1, marginBottom: 0 }}>
+                <label>Nome do sonho</label>
+                <input
+                  type="text"
+                  value={d.name}
+                  onChange={(e) => updateDream(d.id, 'name', e.target.value)}
+                />
+              </div>
+              <button className="fw-iconbtn" style={{ marginTop: 22 }} onClick={() => removeDream(d.id)}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+
+            <div className="fw-grid3" style={{ marginTop: 12 }}>
+              <div className="fw-field" style={{ marginBottom: 0 }}>
+                <label>Valor da meta (R$)</label>
+                <input
+                  type="number"
+                  value={d.target}
+                  onChange={(e) => updateDream(d.id, 'target', Math.max(0, Number(e.target.value)))}
+                />
+              </div>
+              <div className="fw-field" style={{ marginBottom: 0 }}>
+                <label>Já guardado (R$)</label>
+                <input
+                  type="number"
+                  value={d.current}
+                  onChange={(e) => updateDream(d.id, 'current', Math.max(0, Number(e.target.value)))}
+                />
+              </div>
+              <div className="fw-field" style={{ marginBottom: 0 }}>
+                <label>Aporte mensal (R$)</label>
+                <input
+                  type="number"
+                  value={d.monthlyContribution}
+                  onChange={(e) => updateDream(d.id, 'monthlyContribution', Math.max(0, Number(e.target.value)))}
+                />
+              </div>
+            </div>
+
+            <ProgressBar value={pct} gold />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 14 }}>
+              <span>{fmtBRL(d.current)} de {fmtBRL(d.target)}</span>
+              <span>
+                {isFinite(months)
+                  ? `faltam ${fmtBRL(remaining)} · ~${months} ${months === 1 ? 'mês' : 'meses'} no ritmo atual`
+                  : 'defina um aporte mensal para calcular o prazo'}
+              </span>
+            </div>
+
+            <button className="fw-btn ghost" onClick={() => dreamAporte(d.id)} disabled={!d.monthlyContribution}>
+              <Plus size={14} /> Registrar aporte do mês ({fmtBRL(d.monthlyContribution)})
+            </button>
+          </div>
+        );
+      })}
+      </div>
+
+      <button className="fw-btn ghost" data-tour="sonhos-add" onClick={addDream}>
+        <Plus size={14} /> Adicionar sonho
+      </button>
+
+      {dreams.length > 0 && (
+        <div className="fw-note" style={{ marginTop: 20 }}>
+          <Info size={15} />
+          <span>
+            Juntando todos os sonhos, seu aporte mensal total é de <b>{fmtBRL(totalMonthly)}</b> — esse valor entra
+            no cálculo do saldo livre do Painel, junto com a reserva de emergência e a viagem.
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, removeWishlistItem, moveWishlistItem }) {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -1902,7 +2062,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
   return (
     <>
       <div className="fw-card">
-        <div className="fw-card-label">Prosperar</div>
+        <div className="fw-card-label">Desejos</div>
         <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4, lineHeight: 1.5 }}>
           Cadastre aqui as coisas que você quer se dar de presente — roupa, tênis, sair com os
           amigos, o que for. A lista funciona por prioridade: o item do topo é liberado primeiro.
