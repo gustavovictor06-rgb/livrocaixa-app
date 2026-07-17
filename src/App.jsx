@@ -7,10 +7,10 @@ import {
 import {
   LayoutDashboard, Wallet, ShieldCheck, Plane, TrendingUp,
   Plus, Trash2, ChevronRight, Info, LogOut, Sparkles, ArrowUp, ArrowDown, Check, Sun, Moon,
-  CalendarCheck, History, Target
+  CalendarCheck, History, Target, Users
 } from 'lucide-react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from './firebase.js';
+import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
+import { db, ADMIN_EMAIL } from './firebase.js';
 import { useAuth } from './AuthContext.jsx';
 import Login from './Login.jsx';
 
@@ -289,7 +289,7 @@ const TOUR_STEPS = [
 
 const PIE_COLORS = ['#1F6F54', '#B8862E', '#8B3A2B', '#4A5C55', '#5E8C7C', '#C9A64A'];
 
-function AppShell({ user }) {
+function AppShell({ user, isAdmin }) {
   const { logout } = useAuth();
   const [state, setState] = useState(defaultState);
   const [loaded, setLoaded] = useState(false);
@@ -885,6 +885,15 @@ function AppShell({ user }) {
             </div>
           );
         })}
+        {isAdmin && (
+          <div
+            className={`fw-navitem ${tab === 'admin' ? 'active' : ''}`}
+            onClick={() => setTab('admin')}
+          >
+            <Users size={17} />
+            <span className="label">Administração</span>
+          </div>
+        )}
         <div className="fw-navitem" style={{ marginTop: 'auto' }} onClick={logout} title="Sair">
           <LogOut size={17} />
           <span className="label">Sair</span>
@@ -1025,15 +1034,41 @@ function AppShell({ user }) {
             setTab={setTab}
           />
         )}
+
+        {tab === 'admin' && isAdmin && <AdminPanel currentUid={user.uid} />}
       </main>
     </div>
   );
 }
 
 export default function App() {
-  const { user, checking } = useAuth();
+  const { user, checking, ensureProfile, logout } = useAuth();
+  const [status, setStatus] = useState(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
-  if (checking) {
+  useEffect(() => {
+    if (!user) {
+      setCheckingAccess(false);
+      return;
+    }
+    let cancelled = false;
+    setCheckingAccess(true);
+    ensureProfile(user)
+      .then((profile) => {
+        if (!cancelled) setStatus(profile.status || 'pending');
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('pending');
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingAccess(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  if (checking || checkingAccess) {
     return (
       <div style={{ padding: 40, fontFamily: 'IBM Plex Sans, sans-serif', color: '#4A5C55' }}>
         Verificando login…
@@ -1045,7 +1080,45 @@ export default function App() {
     return <Login />;
   }
 
-  return <AppShell user={user} />;
+  if (status === 'blocked') {
+    return <AccessScreen kind="blocked" onLogout={logout} />;
+  }
+
+  if (status !== 'approved') {
+    return <AccessScreen kind="pending" onLogout={logout} />;
+  }
+
+  return <AppShell user={user} isAdmin={user.email === ADMIN_EMAIL} />;
+}
+
+function AccessScreen({ kind, onLogout }) {
+  const isBlocked = kind === 'blocked';
+  return (
+    <div
+      style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'IBM Plex Sans, sans-serif', background: '#F6F3EC', color: '#1C2B26', padding: 20,
+      }}
+    >
+      <div style={{ maxWidth: 380, textAlign: 'center', background: '#FFFEFA', border: '1px solid #DED7C4', borderRadius: 12, padding: '32px 28px' }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>{isBlocked ? '⛔' : '⏳'}</div>
+        <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>
+          {isBlocked ? 'Acesso bloqueado' : 'Aguardando aprovação'}
+        </div>
+        <div style={{ fontSize: 13.5, color: '#5B6B63', lineHeight: 1.55, marginBottom: 20 }}>
+          {isBlocked
+            ? 'O administrador bloqueou o acesso dessa conta ao LivroCaixa.'
+            : 'Sua conta foi criada, mas ainda precisa ser aprovada pelo administrador antes de acessar o LivroCaixa.'}
+        </div>
+        <button
+          onClick={onLogout}
+          style={{ padding: '9px 18px', borderRadius: 6, border: '1px solid #DED7C4', background: 'transparent', cursor: 'pointer', fontSize: 13.5 }}
+        >
+          Sair
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function ProgressBar({ value, gold }) {
@@ -2527,6 +2600,118 @@ function HistoricoTab({ history, currentMonth, currentYear, totalIncome, totalEx
           </>
         )}
       </div>
+    </>
+  );
+}
+
+function AdminPanel({ currentUid }) {
+  const [users, setUsers] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, 'users'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+        list.sort((a, b) => {
+          const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+          const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          return tb - ta;
+        });
+        setUsers(list);
+      },
+      () => setError('Não foi possível carregar a lista de usuários.')
+    );
+    return unsub;
+  }, []);
+
+  const setStatus = async (uid, status) => {
+    try {
+      await updateDoc(doc(db, 'users', uid), { status });
+    } catch (e) {
+      setError('Não foi possível atualizar esse usuário.');
+    }
+  };
+
+  const badge = (status) => {
+    const map = {
+      approved: { label: 'Aprovado', bg: 'var(--emerald-tint)', color: 'var(--emerald-dark)' },
+      pending: { label: 'Pendente', bg: 'var(--gold-tint)', color: 'var(--gold)' },
+      blocked: { label: 'Bloqueado', bg: 'var(--brick-tint)', color: 'var(--brick)' },
+    };
+    const s = map[status] || map.pending;
+    return (
+      <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: s.bg, color: s.color }}>
+        {s.label}
+      </span>
+    );
+  };
+
+  return (
+    <>
+      <div className="fw-pagehead">
+        <div>
+          <div className="fw-eyebrow">Só você vê essa aba</div>
+          <h1>Administração</h1>
+        </div>
+      </div>
+
+      <div className="fw-sub" style={{ marginBottom: 20 }}>
+        Toda pessoa que criar uma conta aparece aqui como "Pendente" até você aprovar. Você pode bloquear o acesso
+        de qualquer pessoa a qualquer momento.
+      </div>
+
+      {error && (
+        <div className="fw-note" style={{ marginBottom: 16, borderColor: 'var(--brick)' }}>
+          <Info size={15} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {users === null ? (
+        <div style={{ fontSize: 13.5, color: 'var(--ink-soft)' }}>Carregando usuários…</div>
+      ) : users.length === 0 ? (
+        <div style={{ fontSize: 13.5, color: 'var(--ink-soft)' }}>Nenhum usuário cadastrado ainda.</div>
+      ) : (
+        <div className="fw-section">
+          {users.map((u) => (
+            <div
+              key={u.uid}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+                padding: '12px 0', borderBottom: '1px dashed var(--line)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                  {u.email} {u.uid === currentUid && <span style={{ color: 'var(--ink-soft)', fontWeight: 400 }}>(você)</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
+                  {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('pt-BR') : '—'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {badge(u.status)}
+                {u.uid !== currentUid && (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {u.status !== 'approved' && (
+                      <button className="fw-btn" style={{ padding: '6px 12px', fontSize: 12.5 }} onClick={() => setStatus(u.uid, 'approved')}>
+                        Aprovar
+                      </button>
+                    )}
+                    {u.status !== 'blocked' && (
+                      <button className="fw-btn ghost" style={{ padding: '6px 12px', fontSize: 12.5 }} onClick={() => setStatus(u.uid, 'blocked')}>
+                        Bloquear
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
