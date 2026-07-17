@@ -1018,19 +1018,33 @@ function TourGuide({ onFinish, tab, setTab }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Localiza o elemento real na tela e calcula a posição do destaque.
+  // Localiza o elemento real na tela: rola até ele instantaneamente, espera
+  // o navegador aplicar a rolagem (1 frame) e só então mede a posição —
+  // isso evita medir no meio de uma rolagem suave (que dava posição errada).
   useEffect(() => {
+    let cancelled = false;
+    let raf1, raf2;
     const t = setTimeout(() => {
       const el = current.target ? document.querySelector(current.target) : null;
-      if (el) {
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else {
-        setRect(null);
+      if (!el) {
+        if (!cancelled) setRect(null);
+        return;
       }
-    }, 260);
-    return () => clearTimeout(t);
+      el.scrollIntoView({ block: 'center', behavior: 'auto' });
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          if (cancelled) return;
+          const r = el.getBoundingClientRect();
+          setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+        });
+      });
+    }, 120);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [step, tab]);
 
   const goNext = () => {
@@ -1043,33 +1057,36 @@ function TourGuide({ onFinish, tab, setTab }) {
     setStep((s) => s - 1);
   };
 
-  // Decide onde colocar o balão em relação ao alvo: abaixo se couber, senão acima.
+  // Decide onde colocar o balão em relação ao alvo: abaixo se couber, senão acima
+  // — sempre travado dentro dos limites da tela, mesmo se o alvo for muito
+  // grande ou estiver perto da borda.
+  const TOOLTIP_H = 260;
   let tooltipStyle = { position: 'fixed', zIndex: 101, width: 320 };
   let arrowStyle = null;
   if (rect) {
     const spaceBelow = window.innerHeight - (rect.top + rect.height);
-    const placeBelow = spaceBelow > 200;
-    const left = Math.min(Math.max(16, rect.left), window.innerWidth - 336);
+    const placeBelow = spaceBelow > TOOLTIP_H || spaceBelow > rect.top;
+    const left = Math.min(Math.max(16, rect.left), Math.max(16, window.innerWidth - 336));
     tooltipStyle.left = left;
     if (placeBelow) {
-      tooltipStyle.top = rect.top + rect.height + 16;
+      tooltipStyle.top = Math.min(rect.top + rect.height + 16, window.innerHeight - TOOLTIP_H - 10);
     } else {
-      tooltipStyle.top = 'auto';
-      tooltipStyle.bottom = window.innerHeight - rect.top + 16;
+      tooltipStyle.top = Math.max(10, rect.top - TOOLTIP_H - 16);
     }
     arrowStyle = {
       position: 'fixed', zIndex: 101, left: Math.min(Math.max(left + 20, rect.left + 12), window.innerWidth - 30),
       width: 14, height: 14, background: 'var(--paper-card)',
       border: '1px solid var(--line)', transform: 'rotate(45deg)',
       ...(placeBelow
-        ? { top: rect.top + rect.height + 10, borderBottom: 'none', borderRight: 'none' }
-        : { top: rect.top - 17, borderTop: 'none', borderLeft: 'none' }),
+        ? { top: Math.min(rect.top + rect.height + 10, window.innerHeight - TOOLTIP_H - 18), borderBottom: 'none', borderRight: 'none' }
+        : { top: Math.max(10, rect.top - TOOLTIP_H - 16) + TOOLTIP_H + 3, borderTop: 'none', borderLeft: 'none' }),
     };
   } else {
     tooltipStyle.top = '50%';
     tooltipStyle.left = '50%';
     tooltipStyle.transform = 'translate(-50%,-50%)';
   }
+
 
   return (
     <>
