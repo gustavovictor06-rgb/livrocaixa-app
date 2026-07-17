@@ -15,3 +15,6 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+// E-mail com poder de administrador: só essa conta pode ver o painel de
+// usuários e aprovar/bloquear acesso.
+export const ADMIN_EMAIL = 'gustavovictor06@gmail.com';
