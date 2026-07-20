@@ -6,5 +6,5 @@ import react from '@vitejs/plugin-react';
 // Se você renomear o repositório no GitHub, atualize o valor abaixo também.
 export default defineConfig({
   plugins: [react()],
-  base: '/livrocaixa-app/',
+  base: '/livrocaixa/',
 });
