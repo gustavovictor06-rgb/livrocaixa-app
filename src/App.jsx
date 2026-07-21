@@ -35,7 +35,7 @@ const defaultState = {
     { id: 'a4', name: 'Contas fixas', amount: 350, installment: false, totalInstallments: 1, paidInstallments: 0 },
     { id: 'a5', name: 'Moto (parcelada)', amount: 650, installment: true, totalPrice: 34200, totalInstallments: 48, paidInstallments: 5, hasDownPayment: true, downPayment: 3000 },
   ],
-  emergency: { multiplier: 6, current: 1500, monthlyContribution: 300, entries: [] },
+  emergency: { multiplier: 6, current: 1500, monthlyContribution: 300, entries: [], aporteMonth: null, aporteYear: null },
   travel: {
     name: 'Viagem dos sonhos',
     target: 12000,
@@ -43,13 +43,18 @@ const defaultState = {
     monthlyContribution: 250,
     targetDate: '',
     entries: [],
+    aporteMonth: null,
+    aporteYear: null,
   },
   dreams: [
-    { id: 'dr1', name: 'Carro novo', target: 60000, current: 5000, monthlyContribution: 400 },
+    { id: 'dr1', name: 'Carro novo', target: 60000, current: 5000, monthlyContribution: 400, aporteMonth: null, aporteYear: null },
   ],
   investment: {
     monthlyAmount: 0,
     useAuto: true,
+    current: 0,
+    aporteMonth: null,
+    aporteYear: null,
     allocation: { rendaFixa: 40, fiis: 30, acoes: 30 },
     // referências de mercado (jul/2026): Selic 14,25% a.a. / CDI ~14,15% a.a.;
     // IFIX com dividend yield médio histórico de ~8% a.a. + valorização de cota;
@@ -366,20 +371,34 @@ function AppShell({ user, isAdmin }) {
       ? Math.ceil(travelRemaining / state.travel.monthlyContribution)
       : Infinity;
 
-  const dreamsMonthly = state.dreams.reduce((sum, d) => sum + (Number(d.monthlyContribution) || 0), 0);
-  const committed = state.emergency.monthlyContribution + state.travel.monthlyContribution + dreamsMonthly;
+  // Só considera "comprometido" (e desconta do saldo livre) o que já foi
+  // efetivamente registrado como aporte NESSE mês — enquanto não registra,
+  // o valor planejado continua contando como saldo livre.
+  const isRegisteredThisMonth = (goal) =>
+    !!goal && goal.aporteMonth === state.currentMonth && goal.aporteYear === state.currentYear;
+
+  const emergencyCommitted = isRegisteredThisMonth(state.emergency) ? state.emergency.monthlyContribution : 0;
+  const travelCommitted = isRegisteredThisMonth(state.travel) ? state.travel.monthlyContribution : 0;
+  const dreamsCommitted = state.dreams.reduce(
+    (sum, d) => sum + (isRegisteredThisMonth(d) ? Number(d.monthlyContribution) || 0 : 0),
+    0
+  );
+  const committed = emergencyCommitted + travelCommitted + dreamsCommitted;
   const suggestedInvest = Math.max(0, grossBalance - committed);
-  const investMonthly = state.investment.useAuto ? suggestedInvest : state.investment.monthlyAmount;
+  // "Planejado": usado nas telas de investimento/projeção, independente de já ter registrado o aporte do mês.
+  const investMonthlyPlanned = state.investment.useAuto ? suggestedInvest : state.investment.monthlyAmount;
+  // "Efetivo": só entra no saldo livre depois que o aporte do mês for registrado.
+  const investMonthly = isRegisteredThisMonth(state.investment) ? investMonthlyPlanned : 0;
 
   // saldo livre: o que sobra depois de já reservar emergência, viagem e investimento
   const balance = grossBalance - committed - investMonthly;
 
   const projection = useMemo(
-    () => projectInvestment(investMonthly, state.investment.allocation, state.investment.returns, 36),
-    [investMonthly, state.investment.allocation, state.investment.returns]
+    () => projectInvestment(investMonthlyPlanned, state.investment.allocation, state.investment.returns, 36),
+    [investMonthlyPlanned, state.investment.allocation, state.investment.returns]
   );
   const finalValue = projection[36]?.total || 0;
-  const totalInvested = investMonthly * 36;
+  const totalInvested = investMonthlyPlanned * 36;
   const totalGain = finalValue - totalInvested;
 
   // "Prosperar": com o saldo livre do mês (balance), verifica em ordem de
@@ -541,6 +560,8 @@ function AppShell({ user, isAdmin }) {
           ...g,
           current: g.current + amount,
           entries: [entry, ...g.entries].slice(0, 12),
+          aporteMonth: s.currentMonth,
+          aporteYear: s.currentYear,
         },
       };
     });
@@ -549,7 +570,10 @@ function AppShell({ user, isAdmin }) {
   const addDream = () => {
     setState((s) => ({
       ...s,
-      dreams: [...s.dreams, { id: uid(), name: 'Novo sonho', target: 10000, current: 0, monthlyContribution: 0 }],
+      dreams: [
+        ...s.dreams,
+        { id: uid(), name: 'Novo sonho', target: 10000, current: 0, monthlyContribution: 0, aporteMonth: null, aporteYear: null },
+      ],
     }));
   };
   const updateDream = (id, field, value) => {
@@ -565,8 +589,23 @@ function AppShell({ user, isAdmin }) {
     setState((s) => ({
       ...s,
       dreams: s.dreams.map((d) =>
-        d.id === id && d.monthlyContribution > 0 ? { ...d, current: d.current + d.monthlyContribution } : d
+        d.id === id && d.monthlyContribution > 0
+          ? { ...d, current: d.current + d.monthlyContribution, aporteMonth: s.currentMonth, aporteYear: s.currentYear }
+          : d
       ),
+    }));
+  };
+  const investAporte = () => {
+    const amount = investMonthlyPlanned;
+    if (amount <= 0) return;
+    setState((s) => ({
+      ...s,
+      investment: {
+        ...s.investment,
+        current: (s.investment.current || 0) + amount,
+        aporteMonth: s.currentMonth,
+        aporteYear: s.currentYear,
+      },
     }));
   };
 
@@ -956,6 +995,7 @@ function AppShell({ user, isAdmin }) {
             target={emergencyTarget}
             remaining={emergencyRemaining}
             months={emergencyMonths}
+            registeredThisMonth={isRegisteredThisMonth(state.emergency)}
             onAporte={() => addEntry('emergency')}
           />
         )}
@@ -966,6 +1006,7 @@ function AppShell({ user, isAdmin }) {
             setTravel={(fn) => setState((s) => ({ ...s, travel: fn(s.travel) }))}
             remaining={travelRemaining}
             months={travelMonths}
+            registeredThisMonth={isRegisteredThisMonth(state.travel)}
             onAporte={() => addEntry('travel')}
           />
         )}
@@ -977,6 +1018,7 @@ function AppShell({ user, isAdmin }) {
             updateDream={updateDream}
             removeDream={removeDream}
             dreamAporte={dreamAporte}
+            isRegisteredThisMonth={isRegisteredThisMonth}
           />
         )}
 
@@ -1012,7 +1054,9 @@ function AppShell({ user, isAdmin }) {
             investment={state.investment}
             setInvestment={(fn) => setState((s) => ({ ...s, investment: fn(s.investment) }))}
             suggestedInvest={suggestedInvest}
-            investMonthly={investMonthly}
+            investMonthly={investMonthlyPlanned}
+            investRegisteredThisMonth={isRegisteredThisMonth(state.investment)}
+            onAporte={investAporte}
             projection={projection}
             finalValue={finalValue}
             totalInvested={totalInvested}
@@ -1436,11 +1480,11 @@ function PainelTab({ currentMonth, currentYear, closeMonth, totalIncome, totalEx
             <span className="fw-num">{fmtBRL(grossBalance)}</span>
           </div>
           <div className="fw-row">
-            <span>Reserva de emergência + Viagem</span>
+            <span>Reserva + Viagem + Sonhos (aportes já registrados)</span>
             <span className="fw-num" style={{ color: 'var(--brick)' }}>− {fmtBRL(committed)}</span>
           </div>
           <div className="fw-row">
-            <span>Investimento mensal</span>
+            <span>Investimento (aporte já registrado)</span>
             <span className="fw-num" style={{ color: 'var(--brick)' }}>− {fmtBRL(investMonthly)}</span>
           </div>
           <div className="fw-row" style={{ fontWeight: 600 }}>
@@ -1793,15 +1837,11 @@ function RendaTab({
           <span className="fw-num">{fmtBRL(grossBalance)}</span>
         </div>
         <div className="fw-row">
-          <span>Aporte reserva de emergência</span>
-          <span className="fw-num" style={{ color: 'var(--brick)' }}>− {fmtBRL(emergency.monthlyContribution)}</span>
+          <span>Reserva + Viagem + Sonhos (aportes já registrados)</span>
+          <span className="fw-num" style={{ color: 'var(--brick)' }}>− {fmtBRL(committed)}</span>
         </div>
         <div className="fw-row">
-          <span>Aporte {travel.name || 'viagem'}</span>
-          <span className="fw-num" style={{ color: 'var(--brick)' }}>− {fmtBRL(travel.monthlyContribution)}</span>
-        </div>
-        <div className="fw-row">
-          <span>Investimento mensal</span>
+          <span>Investimento (aporte já registrado)</span>
           <span className="fw-num" style={{ color: 'var(--brick)' }}>− {fmtBRL(investMonthly)}</span>
         </div>
         <div className="fw-row" style={{ fontWeight: 600 }}>
@@ -1815,7 +1855,7 @@ function RendaTab({
   );
 }
 
-function EmergenciaTab({ emergency, setEmergency, totalExpenses, target, remaining, months, onAporte }) {
+function EmergenciaTab({ emergency, setEmergency, totalExpenses, target, remaining, months, registeredThisMonth, onAporte }) {
   return (
     <>
       <div className="fw-pagehead">
@@ -1882,9 +1922,16 @@ function EmergenciaTab({ emergency, setEmergency, totalExpenses, target, remaini
         </div>
 
         <div style={{ marginTop: 18 }} data-tour="emergencia-aporte">
-          <button className="fw-btn" onClick={onAporte} disabled={!emergency.monthlyContribution}>
-            <Plus size={14} /> Registrar aporte do mês ({fmtBRL(emergency.monthlyContribution)})
-          </button>
+          {registeredThisMonth ? (
+            <div className="fw-note">
+              <Check size={15} />
+              <span>Aporte deste mês já registrado ({fmtBRL(emergency.monthlyContribution)}).</span>
+            </div>
+          ) : (
+            <button className="fw-btn" onClick={onAporte} disabled={!emergency.monthlyContribution}>
+              <Plus size={14} /> Registrar aporte do mês ({fmtBRL(emergency.monthlyContribution)})
+            </button>
+          )}
         </div>
 
         {emergency.entries.length > 0 && (
@@ -1902,7 +1949,7 @@ function EmergenciaTab({ emergency, setEmergency, totalExpenses, target, remaini
   );
 }
 
-function ViagemTab({ travel, setTravel, remaining, months, onAporte }) {
+function ViagemTab({ travel, setTravel, remaining, months, registeredThisMonth, onAporte }) {
   const now = new Date();
   const monthsUntilDate = travel.targetDate
     ? Math.max(
@@ -1991,9 +2038,16 @@ function ViagemTab({ travel, setTravel, remaining, months, onAporte }) {
         )}
 
         <div style={{ marginTop: 18 }} data-tour="viagem-aporte">
-          <button className="fw-btn" onClick={onAporte} disabled={!travel.monthlyContribution}>
-            <Plus size={14} /> Registrar aporte do mês ({fmtBRL(travel.monthlyContribution)})
-          </button>
+          {registeredThisMonth ? (
+            <div className="fw-note">
+              <Check size={15} />
+              <span>Aporte deste mês já registrado ({fmtBRL(travel.monthlyContribution)}).</span>
+            </div>
+          ) : (
+            <button className="fw-btn" onClick={onAporte} disabled={!travel.monthlyContribution}>
+              <Plus size={14} /> Registrar aporte do mês ({fmtBRL(travel.monthlyContribution)})
+            </button>
+          )}
         </div>
 
         {travel.entries.length > 0 && (
@@ -2011,7 +2065,7 @@ function ViagemTab({ travel, setTravel, remaining, months, onAporte }) {
   );
 }
 
-function SonhosTab({ dreams, addDream, updateDream, removeDream, dreamAporte }) {
+function SonhosTab({ dreams, addDream, updateDream, removeDream, dreamAporte, isRegisteredThisMonth }) {
   const totalMonthly = dreams.reduce((sum, d) => sum + (Number(d.monthlyContribution) || 0), 0);
 
   return (
@@ -2092,9 +2146,16 @@ function SonhosTab({ dreams, addDream, updateDream, removeDream, dreamAporte }) 
               </span>
             </div>
 
-            <button className="fw-btn ghost" onClick={() => dreamAporte(d.id)} disabled={!d.monthlyContribution}>
-              <Plus size={14} /> Registrar aporte do mês ({fmtBRL(d.monthlyContribution)})
-            </button>
+            {isRegisteredThisMonth(d) ? (
+              <div className="fw-note">
+                <Check size={15} />
+                <span>Aporte deste mês já registrado ({fmtBRL(d.monthlyContribution)}).</span>
+              </div>
+            ) : (
+              <button className="fw-btn ghost" onClick={() => dreamAporte(d.id)} disabled={!d.monthlyContribution}>
+                <Plus size={14} /> Registrar aporte do mês ({fmtBRL(d.monthlyContribution)})
+              </button>
+            )}
           </div>
         );
       })}
@@ -2256,7 +2317,7 @@ function ProsperarTab({ wishlist, balance, nextWishlistUnlock, addWishlistItem, 
   );
 }
 
-function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMonthly, projection, finalValue, totalInvested, totalGain, allocSum }) {
+function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMonthly, investRegisteredThisMonth, onAporte, projection, finalValue, totalInvested, totalGain, allocSum }) {
   const allocKeys = [
     { key: 'rendaFixa', name: 'Renda Fixa', color: PIE_COLORS[0] },
     { key: 'fiis', name: 'FIIs', color: PIE_COLORS[1] },
@@ -2302,6 +2363,24 @@ function InvestimentoTab({ investment, setInvestment, suggestedInvest, investMon
               onChange={(e) => setInvestment((g) => ({ ...g, monthlyAmount: Number(e.target.value) }))}
             />
           </div>
+        )}
+
+        <div className="fw-cards" style={{ marginTop: 18, marginBottom: 14 }}>
+          <div className="fw-card">
+            <div className="fw-card-label">Já investido (total acumulado)</div>
+            <div className="fw-card-value">{fmtBRL(investment.current || 0)}</div>
+          </div>
+        </div>
+
+        {investRegisteredThisMonth ? (
+          <div className="fw-note">
+            <Check size={15} />
+            <span>Aporte deste mês já registrado ({fmtBRL(investMonthly)}).</span>
+          </div>
+        ) : (
+          <button className="fw-btn ghost" onClick={onAporte} disabled={!investMonthly}>
+            <Plus size={14} /> Registrar aporte do mês ({fmtBRL(investMonthly)})
+          </button>
         )}
       </div>
 
